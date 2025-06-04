@@ -1,7 +1,7 @@
-use std::error::Error;
+use rouille::Response;
 
 
-pub fn handle_fallible<E>(res: Result<rouille::Response, E>) -> rouille::Response where E: Error {
+pub fn check(res: anyhow::Result<Response>) -> Response {
 	match res {
 		Ok(res) => res,
 		Err(err) => {
