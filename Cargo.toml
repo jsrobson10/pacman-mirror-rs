@@ -1,0 +1,11 @@
+[package]
+name = "pacman-mirror-rust"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+json = "0.12.4"
+maud = "0.27.0"
+rouille = "3.6.2"
+tar = "0.4.44"
+yaml = "0.3.0"
