@@ -6,6 +6,8 @@ use crate::{config::{self, CONFIG}, database::desc::DescParser};
 
 use super::package::Package;
 
+pub mod holder;
+
 #[derive(Debug)]
 pub struct Repo {
 	pub created: Instant,
@@ -46,16 +48,17 @@ impl Repo {
 
 				match ty {
 					"desc" => {
-						if dst.desc.len() == 0 {
-							for res in DescParser::new(BufReader::new(entry)) {
-								let (field, body) = res?;
-								dst.desc.insert(field, body);
-							}
+						if dst.desc.is_none() {
+							let mut str = String::new();
+							entry.read_to_string(&mut str)?;
+							dst.desc = Some(str);
 						}
 					}
 					"files" => {
-						if dst.files.len() > 0 {
-							entry.read_to_string(&mut dst.files)?;
+						if dst.files.is_none() {
+							let mut str = String::new();
+							entry.read_to_string(&mut str)?;
+							dst.files = Some(str);
 						}
 					}
 					_ => {}

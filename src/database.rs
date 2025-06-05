@@ -1,6 +1,6 @@
-use std::{collections::HashMap, sync::{Arc, RwLock, RwLockReadGuard}, time::Instant};
+use std::{collections::HashMap, sync::Arc};
 use lazy_static::lazy_static;
-use repo::Repo;
+use repo::holder::RepoHolder;
 
 use crate::config::CONFIG;
 
@@ -11,33 +11,16 @@ pub mod package;
 pub mod repo;
 
 pub struct Database {
-	pub repos: HashMap<Arc<str>, RwLock<Repo>>,
+	pub repos: HashMap<Arc<str>, RepoHolder>,
 }
 
 impl Database {
 	fn new() -> Self {
 		let mut repos = HashMap::new();
 		for name in CONFIG.repos.iter() {
-			repos.insert(name.clone(), RwLock::new(Repo::empty()));
+			repos.insert(name.clone(), RepoHolder::new(name.clone()));
 		}
 		Self { repos }
-	}
-	fn force_refresh(&self, name: &str) -> Option<RwLockReadGuard<Repo>> {
-		let repo = self.repos.get(name)?;
-		let mut wlock = repo.write().unwrap();
-		*wlock = Repo::new(&name);
-		drop(wlock);
-		Some(repo.read().unwrap())
-	}
-	pub fn get_or_refresh(&self, name: &str) -> Option<RwLockReadGuard<Repo>> {
-		let rlock = self.repos.get(name)?.read().unwrap();
-
-		if rlock.created.elapsed() >= CONFIG.timeout {
-			drop(rlock);
-			self.force_refresh(name)
-		} else {
-			Some(rlock)
-		}
 	}
 }
 

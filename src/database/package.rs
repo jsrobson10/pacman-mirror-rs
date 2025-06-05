@@ -6,8 +6,8 @@ use super::mirror::Mirror;
 pub struct Package {
 	pub name: Arc<str>,
 	pub mirrors: HashSet<Mirror>,
-	pub desc: HashMap<String, String>,
-	pub files: String,
+	pub desc: Option<String>,
+	pub files: Option<String>,
 }
 
 impl Package {
@@ -15,8 +15,8 @@ impl Package {
 		Self {
 			name,
 			mirrors: HashSet::new(),
-			desc: HashMap::new(),
-			files: "".into(),
+			desc: None,
+			files: None,
 		}
 	}
 }

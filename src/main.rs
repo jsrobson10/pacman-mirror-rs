@@ -15,6 +15,7 @@ fn main() -> anyhow::Result<()> {
 		router!(req,
 			(GET) (/) => { index::get_root(req) },
 			(GET) (/{repo: String}) => { index::get_repo_root(req, repo).unwrap() },
+			(GET) (/{repo: String}/{file: String}) => { index::get_repo_file(req, repo, file).unwrap() },
 			_ => rouille::Response::empty_404()
 		)
 	});

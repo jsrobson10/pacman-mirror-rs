@@ -1,8 +1,14 @@
-use itertools::Itertools;
-use maud::html;
-use rouille::{Request, Response};
+pub mod root;
+pub mod repo_root;
+pub mod repo_file;
+pub mod database;
 
-use crate::database::{repo::Repo, DB};
+use maud::html;
+
+pub use repo_file::get_repo_file;
+pub use repo_root::get_repo_root;
+pub use database::get_database;
+pub use root::get_root;
 
 fn template(path: &str, body: maud::Markup) -> maud::Markup {
 	html! {
@@ -23,32 +29,5 @@ fn template(path: &str, body: maud::Markup) -> maud::Markup {
 			(body)
 		}
 	}
-}
-
-
-pub fn get_root(req: &Request) -> Response {
-	Response::html(template(req.raw_url(), html! {
-		ul {
-			@for repo in crate::config::CONFIG.repos.iter() {
-				li { a href=(repo) { (repo) } }
-			}
-		}
-	}))
-}
-
-pub fn get_repo_root(req: &Request, repo: String) -> anyhow::Result<Response> {
-	let Some(repo) = DB.get_or_refresh(&repo) else {
-		return Ok(rouille::Response::empty_404());
-	};
-	let mut pkgs = repo.packages.iter().map(|(_,v)| &v.name).collect_vec();
-	pkgs.sort();
-
-	Ok(Response::html(template(req.raw_url(), html! {
-		ul {
-			@for pkg in pkgs {
-				li { (pkg) }
-			}
-		}
-	})))
 }
 
