@@ -1,11 +1,15 @@
-use std::{collections::{HashMap, HashSet}, sync::Arc};
+use std::{collections::{HashMap, HashSet}, sync::{Arc, RwLock}};
+
+pub use data_source::DataSource;
 
 use super::mirror::Mirror;
 
-#[derive(Debug)]
+pub mod data_source;
+
 pub struct Package {
 	pub name: Arc<str>,
 	pub mirrors: HashSet<Mirror>,
+	pub source: RwLock<DataSource>,
 	pub desc: Option<String>,
 	pub files: Option<String>,
 }
@@ -15,6 +19,7 @@ impl Package {
 		Self {
 			name,
 			mirrors: HashSet::new(),
+			source: RwLock::new(DataSource::None),
 			desc: None,
 			files: None,
 		}

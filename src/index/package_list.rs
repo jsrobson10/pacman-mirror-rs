@@ -7,7 +7,7 @@ use crate::database::DB;
 use super::template;
 
 
-pub fn get_repo_root(req: &Request, repo: String) -> anyhow::Result<Response> {
+pub fn get_package_list(req: &Request, repo: String) -> anyhow::Result<Response> {
 	let Some(repo_holder) = DB.repos.get(repo.as_str()) else {
 		return Ok(Response::empty_404());
 	};

@@ -1,14 +1,20 @@
-pub mod root;
-pub mod repo_root;
-pub mod repo_file;
 pub mod database;
+pub mod package;
+pub mod signature;
+pub mod repo_list;
+pub mod package_list;
+pub mod item;
 
 use maud::html;
 
-pub use repo_file::get_repo_file;
-pub use repo_root::get_repo_root;
-pub use database::get_database;
-pub use root::get_root;
+pub use {
+	package::get_package,
+	signature::get_signature,
+	database::get_database,
+	repo_list::get_repo_list,
+	package_list::get_package_list,
+	item::get_item,
+};
 
 fn template(path: &str, body: maud::Markup) -> maud::Markup {
 	html! {

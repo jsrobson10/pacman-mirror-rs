@@ -1,18 +1,16 @@
-use std::{io::Cursor, path::Path, sync::{mpsc, RwLockReadGuard}, time::SystemTime};
-
-use itertools::Itertools;
-use rouille::{Request, Response, ResponseBody};
+use std::{io::Cursor, path::Path, time::SystemTime};
+use rouille::{Response, ResponseBody};
 use tar::{EntryType, Header};
 
-use crate::database::{repo::{holder::RepoHolder, Repo}, DB};
+use crate::database::{desc, repo::holder::RepoHolder};
 
-fn send_database(writer: os_pipe::PipeWriter, repo_holder: &RepoHolder, files: bool) -> anyhow::Result<()> {
-	let repo = repo_holder.get_or_refresh();
+fn send_database(writer: os_pipe::PipeWriter, repo: &RepoHolder, files: bool) -> anyhow::Result<()> {
+	let repo = repo.get_or_refresh();
 	let mut tar_builder = tar::Builder::new(flate2::write::GzEncoder::new(writer, flate2::Compression::new(1)));
 
 	for package in repo.packages.values() {
 		let path = Path::new(package.name.as_ref());
-		let now = SystemTime::UNIX_EPOCH.elapsed()?.as_secs();
+		let now = SystemTime::UNIX_EPOCH.elapsed().map(|v| v.as_secs()).unwrap_or(0);
 
 		let send_file = |builder: &mut tar::Builder<_>, name: &str, bytes: &[u8]| -> anyhow::Result<()> {
 			builder.append(&{
@@ -47,11 +45,7 @@ fn send_database(writer: os_pipe::PipeWriter, repo_holder: &RepoHolder, files: b
 	Ok(())
 }
 
-pub fn get_database(req: &Request, repo_name: String, files: bool) -> anyhow::Result<Response> {
-	let Some(repo) = DB.repos.get(repo_name.as_str()) else {
-		return Ok(Response::empty_404());
-	};
-
+pub fn get_database(repo: &'static RepoHolder, files: bool) -> anyhow::Result<Response> {
 	let (reader, writer) = os_pipe::pipe()?;
 
 	rayon::spawn(move || {
@@ -70,3 +64,4 @@ pub fn get_database(req: &Request, repo_name: String, files: bool) -> anyhow::Re
 		upgrade: None,
 	})
 }
+

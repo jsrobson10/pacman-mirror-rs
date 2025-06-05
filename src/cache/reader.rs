@@ -8,8 +8,11 @@ pub struct CacheReader<T> {
 }
 
 impl<T> CacheReader<T> {
-	pub fn new(reader: &Cache<T>) -> Self {
+	pub(super) fn new(reader: &Cache<T>) -> Self {
 		Self { src: reader.src.clone(), at: 0 }
+	}
+	pub fn reader(&self) -> Self {
+		Self { src: self.src.clone(), at: 0 }
 	}
 	pub fn read_with(&mut self, func: impl FnOnce(&[T]) -> usize) -> usize {
 		let data = self.src.wait_for_data_lock(self.at);
@@ -32,6 +35,9 @@ impl<T> CacheReader<T> {
 			return None;
 		}
 		Some(dst)
+	}
+	pub fn get_size_hint(&self) -> Option<usize> {
+		self.src.size_hint
 	}
 }
 

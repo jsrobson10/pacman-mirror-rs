@@ -1,14 +1,13 @@
-use std::{collections::HashMap, io::{BufReader, Read}, path::PathBuf, sync::{Arc, Mutex}, time::Instant};
+use std::{collections::HashMap, io::Read, path::PathBuf, sync::{Arc, Mutex}, time::Instant};
 use flate2::read::GzDecoder;
 use itertools::Itertools;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use crate::{config::{self, CONFIG}, database::desc::DescParser};
+use crate::config::{self, CONFIG};
 
 use super::package::Package;
 
 pub mod holder;
 
-#[derive(Debug)]
 pub struct Repo {
 	pub created: Instant,
 	pub packages: HashMap<Arc<str>, Package>,
@@ -25,7 +24,7 @@ impl Repo {
 		let packages: Mutex<HashMap<Arc<str>, Package>> = Mutex::new(HashMap::new());
 		
 		config::CONFIG.mirrors.par_iter().map(|mirror| -> anyhow::Result<()> {
-			let url = [mirror.get(&name), format!("{name}.files")].into_iter().collect::<PathBuf>().to_string_lossy().into_owned();
+			let url = [mirror.get(&name), format!("{name}.db")].into_iter().collect::<PathBuf>().to_string_lossy().into_owned();
 			let res = minreq::get(&url).send_lazy()?;
 
 			if res.status_code != 200 {

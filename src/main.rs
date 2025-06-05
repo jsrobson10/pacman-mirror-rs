@@ -13,9 +13,9 @@ fn main() -> anyhow::Result<()> {
 
 	rouille::start_server("localhost:8080", |req| {
 		router!(req,
-			(GET) (/) => { index::get_root(req) },
-			(GET) (/{repo: String}) => { index::get_repo_root(req, repo).unwrap() },
-			(GET) (/{repo: String}/{file: String}) => { index::get_repo_file(req, repo, file).unwrap() },
+			(GET) (/) => { index::get_repo_list(req) },
+			(GET) (/{repo: String}) => { index::get_package_list(req, repo).unwrap() },
+			(GET) (/{repo: String}/{file: String}) => { index::get_item(repo, file).unwrap() },
 			_ => rouille::Response::empty_404()
 		)
 	});
