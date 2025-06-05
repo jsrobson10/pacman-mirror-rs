@@ -1,14 +1,13 @@
 use config::CONFIG;
-use error::check;
 use rouille::router;
 
 mod index;
+pub mod cache;
 pub mod config;
 pub mod error;
 pub mod database;
 
 fn main() -> anyhow::Result<()> {
-
 	let config = &*CONFIG;
 	println!("Loaded config: {config:#?}");
 
