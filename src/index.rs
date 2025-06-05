@@ -2,7 +2,7 @@ use itertools::Itertools;
 use maud::html;
 use rouille::{Request, Response};
 
-use crate::database::repo::Repo;
+use crate::database::{repo::Repo, DB};
 
 fn template(path: &str, body: maud::Markup) -> maud::Markup {
 	html! {
@@ -37,8 +37,9 @@ pub fn get_root(req: &Request) -> Response {
 }
 
 pub fn get_repo_root(req: &Request, repo: String) -> anyhow::Result<Response> {
-
-	let repo = Repo::load_all(&repo)?;
+	let Some(repo) = DB.get_or_refresh(&repo) else {
+		return Ok(rouille::Response::empty_404());
+	};
 	let mut pkgs = repo.packages.iter().map(|(_,v)| &v.name).collect_vec();
 	pkgs.sort();
 

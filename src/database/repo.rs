@@ -1,23 +1,28 @@
-use std::{collections::HashMap, io::{BufReader, Read}, path::PathBuf, sync::{Arc, Mutex}, time::SystemTime};
+use std::{collections::HashMap, io::{BufReader, Read}, path::PathBuf, sync::{Arc, Mutex}, time::Instant};
 use flate2::read::GzDecoder;
 use itertools::Itertools;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use crate::{config, database::desc::DescParser};
+use crate::{config::{self, CONFIG}, database::desc::DescParser};
 
 use super::package::Package;
 
 #[derive(Debug)]
 pub struct Repo {
-	pub created: SystemTime,
+	pub created: Instant,
 	pub packages: HashMap<Arc<str>, Package>,
 }
 
 impl Repo {
-	pub fn load_all(name: &str) -> anyhow::Result<Repo> {
-
+	pub fn empty() -> Repo {
+		Self {
+			created: Instant::now() - CONFIG.timeout,
+			packages: HashMap::new(),
+		}
+	}
+	pub fn new(name: &str) -> Repo {
 		let packages: Mutex<HashMap<Arc<str>, Package>> = Mutex::new(HashMap::new());
 		
-		config::CONFIG.mirrors.par_iter().try_for_each(|mirror| -> anyhow::Result<()> {
+		config::CONFIG.mirrors.par_iter().map(|mirror| -> anyhow::Result<()> {
 			let url = [mirror.get(&name), format!("{name}.files")].into_iter().collect::<PathBuf>().to_string_lossy().into_owned();
 			let res = minreq::get(&url).send_lazy()?;
 
@@ -57,12 +62,16 @@ impl Repo {
 				}
 			}
 			Ok(())
-		})?;
+		}).for_each(|state| {
+			if let Err(err) = state {
+				eprintln!("Error: {err}");
+			}
+		});
 
-		Ok(Repo {
-			created: SystemTime::now(),
+		Repo {
+			created: Instant::now(),
 			packages: packages.into_inner().unwrap(),
-		})
+		}
 	}
 }
 

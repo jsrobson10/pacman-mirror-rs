@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use lazy_static::lazy_static;
 use serde::{Serialize, Deserialize};
@@ -9,6 +9,7 @@ use crate::database::mirror::Mirror;
 pub struct Config {
 	pub name: Arc<str>,
 	pub arch: Arc<str>,
+	pub timeout: Duration,
 	pub repos: Vec<Arc<str>>,
 	pub mirrors: Vec<Mirror>,
 }
@@ -18,6 +19,7 @@ impl Default for Config {
 		Self {
 			name: "archlinux".into(),
 			arch: "x86_64".into(),
+			timeout: Duration::from_secs(3600),
 			repos: vec!["core".into(), "multilib".into(), "extra".into()],
 			mirrors: vec![Mirror::new("https://geo.mirror.pkgbuild.com/$repo/os/$arch/".into())],
 		}
