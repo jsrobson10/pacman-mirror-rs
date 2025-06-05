@@ -43,7 +43,10 @@ impl Repo {
 				let pkg_name: Arc<str> = pkg_name.into();
 				let mut packages = packages.lock().unwrap();
 				let dst = packages.entry(pkg_name.clone()).or_insert_with(|| Package::new(pkg_name.clone()));
-				dst.mirrors.insert(mirror.clone());
+
+				if !dst.mirrors.contains(&mirror) {
+					dst.mirrors.push(mirror.clone());
+				}
 
 				match ty {
 					"desc" => {

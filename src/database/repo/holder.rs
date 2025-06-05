@@ -7,7 +7,7 @@ use super::Repo;
 
 pub struct RepoHolder {
 	repo: RwLock<Repo>,
-	name: Arc<str>,
+	pub name: Arc<str>,
 }
 
 impl RepoHolder {
