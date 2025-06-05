@@ -7,10 +7,10 @@ use crate::database::mirror::Mirror;
 
 #[derive(Debug,Serialize,Deserialize)]
 pub struct Config {
-	pub name: String,
-	pub arch: String,
-	pub repos: Vec<String>,
-	pub mirrors: Vec<Arc<Mirror>>,
+	pub name: Arc<str>,
+	pub arch: Arc<str>,
+	pub repos: Vec<Arc<str>>,
+	pub mirrors: Vec<Mirror>,
 }
 
 impl Default for Config {
@@ -19,7 +19,7 @@ impl Default for Config {
 			name: "archlinux".into(),
 			arch: "x86_64".into(),
 			repos: vec!["core".into(), "multilib".into(), "extra".into()],
-			mirrors: vec![Arc::new(Mirror::new("https://geo.mirror.pkgbuild.com/$repo/os/$arch/".into()))],
+			mirrors: vec![Mirror::new("https://geo.mirror.pkgbuild.com/$repo/os/$arch/".into())],
 		}
 	}
 }

@@ -1,26 +1,23 @@
-use std::{collections::HashMap, ffi::OsStr, io::{BufRead, BufReader, Read, Write}, path::PathBuf, sync::Mutex, time::SystemTime};
-
-use flate2::read::{DeflateDecoder, GzDecoder};
+use std::{collections::HashMap, io::{BufReader, Read}, path::PathBuf, sync::{Arc, Mutex}, time::SystemTime};
+use flate2::read::GzDecoder;
 use itertools::Itertools;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-
-use crate::{config::CONFIG, database::desc::{self, DescParser}};
+use crate::{config, database::desc::DescParser};
 
 use super::package::Package;
 
 #[derive(Debug)]
 pub struct Repo {
-	pub name: String,
 	pub created: SystemTime,
-	pub packages: HashMap<String, Package>,
+	pub packages: HashMap<Arc<str>, Package>,
 }
 
 impl Repo {
-	pub fn load_all(name: String) -> anyhow::Result<Repo> {
+	pub fn load_all(name: &str) -> anyhow::Result<Repo> {
 
-		let packages: Mutex<HashMap<String, Package>> = Mutex::new(HashMap::new());
+		let packages: Mutex<HashMap<Arc<str>, Package>> = Mutex::new(HashMap::new());
 		
-		CONFIG.mirrors.par_iter().try_for_each(|mirror| -> anyhow::Result<()> {
+		config::CONFIG.mirrors.par_iter().try_for_each(|mirror| -> anyhow::Result<()> {
 			let url = [mirror.get(&name), format!("{name}.files")].into_iter().collect::<PathBuf>().to_string_lossy().into_owned();
 			let res = minreq::get(&url).send_lazy()?;
 
@@ -37,16 +34,15 @@ impl Repo {
 					Some(v) => v,
 				};
 				
+				let pkg_name: Arc<str> = pkg_name.into();
 				let mut packages = packages.lock().unwrap();
-				let dst = packages.entry(pkg_name.into()).or_insert_with(|| Package::new(pkg_name.into()));
+				let dst = packages.entry(pkg_name.clone()).or_insert_with(|| Package::new(pkg_name.clone()));
 				dst.mirrors.insert(mirror.clone());
 
 				match ty {
 					"desc" => {
-						let desc_parser = DescParser::new(BufReader::new(entry));
-
 						if dst.desc.len() == 0 {
-							for res in desc_parser {
+							for res in DescParser::new(BufReader::new(entry)) {
 								let (field, body) = res?;
 								dst.desc.insert(field, body);
 							}
@@ -59,14 +55,11 @@ impl Repo {
 					}
 					_ => {}
 				}
-				
-//				std::io::stdout().lock().write_fmt(format_args!("====== LOCK ======>\nFound: {} => {}\n<==== UNLOCK =====\n", path, String::from_utf8(bytes?)?))?;
 			}
 			Ok(())
 		})?;
 
 		Ok(Repo {
-			name,
 			created: SystemTime::now(),
 			packages: packages.into_inner().unwrap(),
 		})

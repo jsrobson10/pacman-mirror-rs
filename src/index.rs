@@ -38,7 +38,7 @@ pub fn get_root(req: &Request) -> Response {
 
 pub fn get_repo_root(req: &Request, repo: String) -> anyhow::Result<Response> {
 
-	let repo = Repo::load_all(repo)?;
+	let repo = Repo::load_all(&repo)?;
 	let mut pkgs = repo.packages.iter().map(|(_,v)| &v.name).collect_vec();
 	pkgs.sort();
 
