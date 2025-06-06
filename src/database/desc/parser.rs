@@ -16,6 +16,8 @@ pub enum ParseError {
 	MissingFields,
 	#[error("Parse {field}: {err}")]
 	ParseInt { field: &'static str, err: ParseIntError },
+	#[error("Decode {field}: {err}")]
+	Decode { field: &'static str, err: hex::FromHexError },
 }
 
 pub fn parse(src: ArcRef<str>, mut dst_func: impl FnMut(ArcRef<str>, ArcRef<str>)) -> Result<(), ParseError> {

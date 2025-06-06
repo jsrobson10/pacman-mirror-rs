@@ -1,9 +1,7 @@
 use std::sync::Mutex;
 
 pub use data_source::DataSource;
-pub use partial::{PartialCache, PartialCacheReader};
 
-pub mod partial;
 pub mod data_source;
 
 pub struct Cache {

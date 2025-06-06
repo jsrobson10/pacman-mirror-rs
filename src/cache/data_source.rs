@@ -1,12 +1,10 @@
-use std::sync::Arc;
-
-use super::PartialCacheReader;
+use std::sync::{mpsc, Arc};
 
 
 #[derive(Clone)]
 pub enum DataSource {
 	Empty,
-	Partial(PartialCacheReader<u8>),
+	Partial(mpsc::Sender<os_pipe::PipeWriter>),
 	Memory(Arc<[u8]>),
 }
 

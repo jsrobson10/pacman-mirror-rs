@@ -1,38 +1,80 @@
-use std::{io::{Cursor, Read, Write}, path::PathBuf};
-use anyhow::anyhow;
+use std::{io::{Cursor, Read, Write}, path::PathBuf, sync::{mpsc, Arc}};
+use anyhow::{anyhow, bail};
 use log::{debug, error, info, warn};
+use os_pipe::PipeWriter;
 use rand::seq::SliceRandom;
 use rouille::{Response, ResponseBody};
+use sha2::{Digest, Sha256};
 
-use crate::{cache::{DataSource, PartialCache}, config::CONFIG, database::repo::holder::RepoHolder};
+use crate::{cache::DataSource, database::repo::holder::RepoHolder};
 
 
-pub fn download_package(repo_holder: &'static RepoHolder, file: String, mut src: impl Read, mut dst: PartialCache<u8>) -> anyhow::Result<()> {
+struct Receiver {
+	pipe: PipeWriter,
+	at: usize,
+}
+
+impl Receiver {
+	fn new(pipe: PipeWriter) -> Self {
+		Receiver { pipe, at: 0 }
+	}
+}
+
+pub fn download_package(repo_holder: &'static RepoHolder, file: String, mut src: impl Read, dst: os_pipe::PipeWriter) -> anyhow::Result<()> {
 	let repo = repo_holder.get_without_refresh();
 	let package = repo.packages.get(file.as_str()).ok_or_else(|| anyhow!("Package is None"))?;
 
+	let (tx, rx) = mpsc::channel();
+	let mut data = Vec::with_capacity(package.desc.csize);
+	let mut pipes = vec![Receiver { pipe: dst, at: 0 }];
 
-	package.cache.set(DataSource::Partial(dst.reader()));
+	package.cache.set(DataSource::Partial(tx));
 
 	let mut do_transfer = || -> std::io::Result<()> {
-		let mut buf = [0u8; 65536];
+		let mut buffer = [0u8; 1024];
 		loop {
-			let len = src.read(&mut buf)?;
-			if len == 0 {
+			let len = src.read(&mut buffer)?;
+			let buf = &buffer[..len];
+			if buf.is_empty() {
 				break;
 			}
-			dst.write(&buf[..len])?;
+			data.extend_from_slice(buf);
+			pipes.extend(rx.try_iter().map(|pipe| Receiver::new(pipe)));
+			pipes.retain_mut(|r| {
+				if let Ok(len) = r.pipe.write(&data[r.at..]) {
+					r.at += len;
+					true
+				} else {
+					false
+				}
+			});
 		}
 		Ok(())
 	};
 	if let Err(err) = do_transfer() {
 		package.cache.set(DataSource::Empty);
-		Err(err.into())
+		return Err(err.into());
 	}
-	else {
-		package.cache.set(DataSource::Memory(dst.into()));
-		Ok(())
+	if Sha256::digest(&data).as_slice() != package.desc.sha256sum {
+		package.cache.set(DataSource::Empty);
+		bail!("Checksums do not match");
 	}
+	let data: Arc<[u8]> = data.into();
+	package.cache.set(DataSource::Memory(data.clone()));
+
+	// finish sending data
+	while pipes.len() > 0 {
+		pipes.retain_mut(|r| {
+			if let Ok(len) = r.pipe.write(&data[r.at..]) {
+				r.at += len;
+				r.at < data.len()
+			} else {
+				false
+			}
+		});
+	}
+
+	Ok(())
 }
 
 pub fn get_package(repo_holder: &'static RepoHolder, file: &str) -> anyhow::Result<Response> {
@@ -40,12 +82,9 @@ pub fn get_package(repo_holder: &'static RepoHolder, file: &str) -> anyhow::Resu
 	let Some(package) = repo.packages.get(file) else {
 		return Ok(Response::empty_404());
 	};
-	let response_body: ResponseBody;
-
-	match package.cache.get() {
+	let response_body = match package.cache.get() {
 		DataSource::Empty => {
-			let cache = PartialCache::<u8>::with_capacity(package.desc.csize);
-			let reader = cache.reader();
+			let (reader, writer) = os_pipe::pipe()?;
 			let mut mirrors = package.mirrors.clone();
 			mirrors.shuffle(&mut rand::rng());
 
@@ -63,7 +102,7 @@ pub fn get_package(repo_holder: &'static RepoHolder, file: &str) -> anyhow::Resu
 				let file = file.to_owned();
 				std::thread::spawn(move || {
 					debug!("Download started: {}", url.to_string_lossy());
-					if let Err(err) = download_package(repo_holder, file, res, cache) {
+					if let Err(err) = download_package(repo_holder, file, res, writer) {
 						error!("{err}");
 						return;
 					}
@@ -71,20 +110,17 @@ pub fn get_package(repo_holder: &'static RepoHolder, file: &str) -> anyhow::Resu
 				});
 				break;
 			}
-			response_body = ResponseBody::from_reader(reader);
+			ResponseBody::from_reader_and_size(reader, package.desc.csize)
 		}
-		DataSource::Partial(reader) => {
-			let reader = reader.reader();
-			response_body = match reader.get_size_hint() {
-				Some(len) => ResponseBody::from_reader_and_size(reader, len),
-				None => ResponseBody::from_reader(reader),
-			};
+		DataSource::Partial(tx) => {
+			let (reader, writer) = os_pipe::pipe()?;
+			tx.send(writer)?;
+			ResponseBody::from_reader_and_size(reader, package.desc.csize)
 		}
 		DataSource::Memory(buff) => {
-			response_body = ResponseBody::from_reader_and_size(Cursor::new(buff.clone()), buff.len());
+			ResponseBody::from_reader_and_size(Cursor::new(buff.clone()), buff.len())
 		}
-	}
-
+	};
 	Ok(Response {
 		status_code: 200,
 		headers: vec![

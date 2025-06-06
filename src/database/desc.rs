@@ -1,5 +1,7 @@
 use std::{collections::HashMap, io::{Read, Write}, sync::Arc, time::{Duration, SystemTime}};
 
+use base64::{prelude::BASE64_STANDARD, Engine};
+use log::trace;
 use owning_ref::ArcRef;
 use parser::ParseError;
 
@@ -15,7 +17,7 @@ pub struct Desc {
 	pub version: ArcRef<str>,
 	pub pgpsig: ArcRef<str>,
 	pub builddate: SystemTime,
-	pub sha256sum: ArcRef<str>,
+	pub sha256sum: [u8; 32],
 	pub csize: usize,
 }
 
@@ -30,9 +32,9 @@ impl Desc {
 			Some(filename),
 			Some(version),
 			Some(pgpsig),
-			Some(sha256sum),
-			Some(builddate),
-			Some(csize),
+			Some(p_sha256sum),
+			Some(p_builddate),
+			Some(p_csize),
 		) = (
 			data.get("NAME").cloned(),
 			data.get("FILENAME").cloned(),
@@ -44,14 +46,18 @@ impl Desc {
 		) else {
 			return Err(ParseError::MissingFields);
 		};
-		let builddate = match builddate.parse() {
+		let builddate = match p_builddate.parse() {
 			Ok(secs) => SystemTime::UNIX_EPOCH + Duration::from_secs(secs),
 			Err(err) => return Err(ParseError::ParseInt { field: "BUILDDATE", err }),
 		};
-		let csize: usize = match csize.parse() {
+		let csize: usize = match p_csize.parse() {
 			Ok(len) => len,
 			Err(err) => return Err(ParseError::ParseInt { field: "CSIZE", err }),
 		};
+		let mut sha256sum = [0u8; 32];
+		if let Err(err) = hex::decode_to_slice(p_sha256sum.as_ref(), &mut sha256sum) {
+			return Err(ParseError::Decode { field: "SHA256SUM", err });
+		}
 		Ok(Self { data, name, filename, version, pgpsig, builddate, sha256sum, csize })
 	}
 	pub fn write_to(&self, dst: impl Write) -> std::io::Result<()> {
