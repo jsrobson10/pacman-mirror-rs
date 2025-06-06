@@ -8,6 +8,7 @@ use crate::database::mirror::Mirror;
 #[derive(Debug,Serialize,Deserialize)]
 pub struct Config {
 	pub name: Arc<str>,
+	pub listen: Arc<str>,
 	pub arch: Arc<str>,
 	pub timeout: Duration,
 	pub repos: Vec<Arc<str>>,
@@ -18,6 +19,7 @@ impl Default for Config {
 	fn default() -> Self {
 		Self {
 			name: "archlinux".into(),
+			listen: "localhost:8080".into(),
 			arch: "x86_64".into(),
 			timeout: Duration::from_secs(3600),
 			repos: vec!["core".into(), "multilib".into(), "extra".into()],

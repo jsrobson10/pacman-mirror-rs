@@ -15,7 +15,7 @@ pub fn get_package_list(req: &Request, repo: String) -> anyhow::Result<Response>
 	};
 	let repo = repo_holder.get_or_refresh();
 	let mut pkgs = repo.packages.values().map(|v| {
-		(v.desc.filename.as_ref(), v.mirrors.len(), match v.cache.get() {
+		(v.desc.name.as_ref(), v.desc.filename.as_ref(), v.desc.version.as_ref(), v.mirrors.len(), match v.cache.get() {
 			DataSource::Empty => {
 				Cow::Borrowed("-")
 			}
@@ -38,13 +38,15 @@ pub fn get_package_list(req: &Request, repo: String) -> anyhow::Result<Response>
 	Ok(Response::html(template(req.raw_url(), html! {
 		table {
 			tr {
-				th { "Package" }
+				th { "Name" }
+				th { "Version" }
 				th { "Mirrors" }
 				th { "Cache State" }
 			}
-			@for (filename, mirror_count, cache_state) in pkgs {
+			@for (name, filename, version, mirror_count, cache_state) in pkgs {
 				tr {
-					td { a href=(filename) { (filename) } " (" a href={ (filename) ".sig" } { "sig" } ")" }
+					td { a href=(filename) { (name) } " (" a href={ (filename) ".sig" } { "sig" } ")" }
+					td { (version) }
 					td { (mirror_count) " / " (CONFIG.mirrors.len()) }
 					td { (cache_state) }
 				}

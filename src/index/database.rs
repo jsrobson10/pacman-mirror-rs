@@ -1,4 +1,5 @@
 use std::{io::Cursor, path::PathBuf, time::SystemTime};
+use log::error;
 use rouille::{Response, ResponseBody};
 use tar::{EntryType, Header};
 
@@ -48,9 +49,9 @@ fn send_database(writer: os_pipe::PipeWriter, repo: &RepoHolder, files: bool) ->
 pub fn get_database(repo: &'static RepoHolder, files: bool) -> anyhow::Result<Response> {
 	let (reader, writer) = os_pipe::pipe()?;
 
-	rayon::spawn(move || {
+	std::thread::spawn(move || {
 		if let Err(err) = send_database(writer, repo, files) {
-			eprintln!("Error in stream: {err}");
+			error!("{err}");
 		}
 	});
 

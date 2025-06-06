@@ -1,5 +1,6 @@
 use std::{io::{Cursor, Read, Write}, path::PathBuf};
 use anyhow::anyhow;
+use log::{debug, error, info, warn};
 use rand::seq::SliceRandom;
 use rouille::{Response, ResponseBody};
 
@@ -9,10 +10,12 @@ use crate::{cache::{DataSource, PartialCache}, config::CONFIG, database::repo::h
 pub fn download_package(repo_holder: &'static RepoHolder, file: String, mut src: impl Read, mut dst: PartialCache<u8>) -> anyhow::Result<()> {
 	let repo = repo_holder.get_without_refresh();
 	let package = repo.packages.get(file.as_str()).ok_or_else(|| anyhow!("Package is None"))?;
+
+
 	package.cache.set(DataSource::Partial(dst.reader()));
 
 	let mut do_transfer = || -> std::io::Result<()> {
-		let mut buf = [0u8; 1024];
+		let mut buf = [0u8; 65536];
 		loop {
 			let len = src.read(&mut buf)?;
 			if len == 0 {
@@ -41,7 +44,7 @@ pub fn get_package(repo_holder: &'static RepoHolder, file: &str) -> anyhow::Resu
 
 	match package.cache.get() {
 		DataSource::Empty => {
-			let cache = PartialCache::<u8>::new();
+			let cache = PartialCache::<u8>::with_capacity(package.desc.csize);
 			let reader = cache.reader();
 			let mut mirrors = package.mirrors.clone();
 			mirrors.shuffle(&mut rand::rng());
@@ -50,18 +53,21 @@ pub fn get_package(repo_holder: &'static RepoHolder, file: &str) -> anyhow::Resu
 				let url = PathBuf::from(mirror.get(&repo_holder.name)).join(file);
 				let url_str = url.to_string_lossy();
 				let Ok(res) = minreq::get(&*url_str).send_lazy() else {
-					eprintln!("Error: {url_str} failed");
+					warn!("{url_str} failed");
 					continue;
 				};
 				if res.status_code != 200 {
-					eprintln!("Error: {url_str} got {} {}", res.status_code, res.reason_phrase);
+					warn!("{url_str} got {} {}", res.status_code, res.reason_phrase);
 					continue;
 				}
 				let file = file.to_owned();
-				rayon::spawn(move || {
+				std::thread::spawn(move || {
+					debug!("Download started: {}", url.to_string_lossy());
 					if let Err(err) = download_package(repo_holder, file, res, cache) {
-						eprintln!("Error: {err}");
+						error!("{err}");
+						return;
 					}
+					info!("Download: {}", url.to_string_lossy());
 				});
 				break;
 			}

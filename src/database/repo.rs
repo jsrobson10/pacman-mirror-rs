@@ -1,9 +1,10 @@
 use std::{cmp::Ordering, collections::{hash_map::Entry, HashMap}, io::Read, path::PathBuf, sync::{Arc, Mutex}, time::{Instant, SystemTime}};
 use flate2::read::GzDecoder;
 use itertools::Itertools;
+use log::{debug, error, info};
 use owning_ref::{ArcRef, OwningRef};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use crate::{cache::Cache, config::{self, CONFIG}};
+use crate::{cache::Cache, config::{self, CONFIG}, vercmp};
 
 use super::{desc::{self, Desc}, mirror::Mirror, package::Package};
 
@@ -57,13 +58,16 @@ impl Repo {
 		self.packages_by_name.clear();
 		self.packages.values_mut().for_each(|pkg| pkg.mirrors.clear());
 
+		debug!("Refreshing database");
+
+		let size_start = self.packages.len();
 		let packages = Mutex::new((&mut self.packages, &mut self.packages_by_name));
 
 		CONFIG.mirrors.par_iter().for_each(|mirror| {
 			let l_packages = match get_from_repo(repo_name, mirror) {
 				Ok(data) => data,
 				Err(err) => {
-					eprintln!("Error: {err}");
+					error!("{err}");
 					return;
 				}
 			};
@@ -77,7 +81,7 @@ impl Repo {
 					}
 					Entry::Occupied(mut dst) => {
 						let dst = dst.get_mut();
-						if package.desc.filename > *dst {
+						if vercmp::alpm_pkg_ver_cmp(package.desc.filename.as_ref(), dst.as_ref()) == Ordering::Greater {
 							*dst = package.desc.filename.clone();
 						}
 					}
@@ -96,8 +100,12 @@ impl Repo {
 				}
 			}
 		});
+
+		let size_end = self.packages.len();
 		self.packages.retain(|_, pkg| pkg.mirrors.len() > 0);
 		self.last_updated = SystemTime::now();
+
+		info!("Refreshed {repo_name}: {} added {} removed", size_end - size_start, size_end - self.packages.len());
 	}
 }
 
