@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{io::Write, sync::Arc};
 use owner::CacheOwner;
 pub use reader::CacheReader;
 
@@ -33,13 +33,26 @@ impl<T> Cache<T> {
 		self.with_vec_mut(|items| items.push(item));
 	}
 }
-
+impl Write for Cache<u8> {
+	fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+		self.extend(buf.iter().copied());
+		Ok(buf.len())
+	}
+	fn flush(&mut self) -> std::io::Result<()> {
+		Ok(())
+	}
+}
 impl<T> Drop for Cache<T> {
 	fn drop(&mut self) {
 		if let Ok(mut data) = self.src.data.lock() {
 			data.done = true;
 			self.src.cvar.notify_all();
 		}
+	}
+}
+impl<T> Into<Arc<[T]>> for Cache<T> where T: Clone {
+	fn into(self) -> Arc<[T]> {
+		self.src.data.lock().unwrap().items.clone().into()
 	}
 }
 

@@ -20,9 +20,11 @@ impl RepoHolder {
 		drop(wlock);
 		self.repo.read().unwrap()
 	}
+	pub fn get_without_refresh(&self) -> RwLockReadGuard<Repo> {
+		self.repo.read().unwrap()
+	}
 	pub fn get_or_refresh(&self) -> RwLockReadGuard<Repo> {
 		let rlock = self.repo.read().unwrap();
-
 		if rlock.created.elapsed() >= CONFIG.timeout {
 			drop(rlock);
 			self.force_refresh()
