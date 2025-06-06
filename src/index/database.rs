@@ -2,7 +2,7 @@ use std::{io::Cursor, path::Path, time::SystemTime};
 use rouille::{Response, ResponseBody};
 use tar::{EntryType, Header};
 
-use crate::database::{desc, repo::holder::RepoHolder};
+use crate::database::repo::holder::RepoHolder;
 
 fn send_database(writer: os_pipe::PipeWriter, repo: &RepoHolder, files: bool) -> anyhow::Result<()> {
 	let repo = repo.get_or_refresh();
@@ -35,9 +35,7 @@ fn send_database(writer: os_pipe::PipeWriter, repo: &RepoHolder, files: bool) ->
 			v
 		}, std::io::empty())?;
 		if let Some(desc) = package.desc.as_ref() {
-			let mut bytes = Vec::new();
-			desc::writer::write(&mut bytes, desc.iter().map(|(k,v)| (&**k, &**v)))?;
-			send_file(&mut tar_builder, "desc", &bytes)?;
+			send_file(&mut tar_builder, "desc", &desc.write_to_vec()?)?;
 		}
 		if let Some(files) = package.files.as_ref().filter(|_| files) {
 			send_file(&mut tar_builder, "files", files.as_bytes())?;

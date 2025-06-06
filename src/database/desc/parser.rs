@@ -42,10 +42,10 @@ pub fn parse(src: ArcRef<str>, mut dst_func: impl FnMut(ArcRef<str>, ArcRef<str>
 		let body_start = idx + 1;
 		let mut body = None;
 		let mut found_nl = true;
-		for (_, ch) in it.by_ref() {
+		for (idx, ch) in it.by_ref() {
 			match (ch, found_nl) {
 				('\n', true) => {
-					body = Some(src.clone().map(|v| &v[body_start..]));
+					body = Some(src.clone().map(|v| &v[body_start..(idx-1)]));
 					break;
 				}
 				('\n', false) => {

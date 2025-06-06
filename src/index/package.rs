@@ -9,27 +9,27 @@ use crate::{cache::{Cache, CacheReader}, config::CONFIG, database::{mirror::Mirr
 pub fn download_package(repo_holder: &'static RepoHolder, file: String, mut src: impl Read, mut dst: Cache<u8>) -> anyhow::Result<()> {
 	let repo = repo_holder.get_without_refresh();
 	let package = repo.packages.get(file.as_str()).ok_or_else(|| anyhow!("Package is None"))?;
+	package.lock_and_set_source(DataSource::Partial(dst.reader()));
 
-	{
-		let mut lock = package.source.write().unwrap();
-		*lock = DataSource::Partial(dst.reader());
-	}
-
-	let mut buf = [0u8; 1024];
-	loop {
-		let len = src.read(&mut buf)?;
-		if len == 0 {
-			break;
+	let mut do_transfer = || -> std::io::Result<()> {
+		let mut buf = [0u8; 1024];
+		loop {
+			let len = src.read(&mut buf)?;
+			if len == 0 {
+				break;
+			}
+			dst.write(&buf[..len])?;
 		}
-		dst.write(&buf[..len])?;
+		Ok(())
+	};
+	if let Err(err) = do_transfer() {
+		package.lock_and_set_source(DataSource::None);
+		Err(err.into())
 	}
-	
-	{
-		let mut lock = package.source.write().unwrap();
-		*lock = DataSource::Memory(dst.into());
+	else {
+		package.lock_and_set_source(DataSource::Memory(dst.into()));
+		Ok(())
 	}
-
-	Ok(())
 }
 
 pub fn get_package(repo_holder: &'static RepoHolder, file: &str) -> anyhow::Result<Response> {
@@ -70,7 +70,6 @@ pub fn get_package(repo_holder: &'static RepoHolder, file: &str) -> anyhow::Resu
 				});
 				break;
 			}
-
 			response_body = ResponseBody::from_reader(reader);
 		}
 		DataSource::Partial(reader) => {

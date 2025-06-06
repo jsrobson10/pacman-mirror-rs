@@ -5,7 +5,7 @@ use owning_ref::{ArcRef, OwningRef};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use crate::config::{self, CONFIG};
 
-use super::{desc, package::Package};
+use super::{desc::{self, Desc}, package::Package};
 
 pub mod holder;
 
@@ -53,12 +53,8 @@ impl Repo {
 					"desc" => {
 						if dst.desc.is_none() {
 							let mut str = String::new();
-							let mut desc = HashMap::new();
 							entry.read_to_string(&mut str)?;
-							desc::parser::parse(ArcRef::new(Arc::<str>::from(str)), |k,v| {
-								desc.insert(k,v);
-							})?;
-							dst.desc = Some(desc);
+							dst.desc = Some(Desc::parse(str)?);
 						}
 					}
 					"files" => {
