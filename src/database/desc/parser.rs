@@ -1,3 +1,5 @@
+use std::num::ParseIntError;
+
 use owning_ref::ArcRef;
 use thiserror::Error;
 
@@ -10,6 +12,10 @@ pub enum ParseError {
 	Eof { src: ArcRef<str> },
 	#[error("Unexpected character in name: {cursor}, expected: {expected:?}")]
 	Name { cursor: Cursor, expected: char },
+	#[error("Missing fields")]
+	MissingFields,
+	#[error("Parse {field}: {err}")]
+	ParseInt { field: &'static str, err: ParseIntError },
 }
 
 pub fn parse(src: ArcRef<str>, mut dst_func: impl FnMut(ArcRef<str>, ArcRef<str>)) -> Result<(), ParseError> {

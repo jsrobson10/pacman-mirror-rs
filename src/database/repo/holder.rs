@@ -1,4 +1,4 @@
-use std::sync::{Arc, RwLock, RwLockReadGuard};
+use std::{sync::{Arc, RwLock, RwLockReadGuard}, time::Duration};
 
 use crate::config::CONFIG;
 
@@ -16,7 +16,7 @@ impl RepoHolder {
 	}
 	fn force_refresh(&self) -> RwLockReadGuard<Repo> {
 		let mut wlock = self.repo.write().unwrap();
-		*wlock = Repo::new(&self.name);
+		wlock.refresh(&self.name);
 		drop(wlock);
 		self.repo.read().unwrap()
 	}
@@ -25,7 +25,7 @@ impl RepoHolder {
 	}
 	pub fn get_or_refresh(&self) -> RwLockReadGuard<Repo> {
 		let rlock = self.repo.read().unwrap();
-		if rlock.created.elapsed() >= CONFIG.timeout {
+		if rlock.last_updated.elapsed().map_or(false, |v| v >= CONFIG.timeout) {
 			drop(rlock);
 			self.force_refresh()
 		} else {

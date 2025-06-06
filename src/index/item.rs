@@ -23,12 +23,9 @@ pub fn get_item(repo_name: String, file: String) -> anyhow::Result<Response> {
 			}
 		}
 	}
-	if let Some(file) = file.strip_suffix(".pkg.tar.zst") {
-		return get_package(repo, file);
-	}
-	if let Some(file) = file.strip_suffix(".pkg.tar.zst.sig") {
+	if let Some(file) = file.strip_suffix(".sig") {
 		return get_signature(repo, file);
 	}
-	Ok(Response::empty_404())
+	get_package(repo, &file)
 }
 

@@ -1,14 +1,15 @@
 use std::sync::Arc;
-use super::{Cache, CacheOwner};
+use super::{PartialCache, PartialCacheOwner};
 
 
-pub struct CacheReader<T> {
-	src: Arc<CacheOwner<T>>,
+#[derive(Clone)]
+pub struct PartialCacheReader<T> {
+	src: Arc<PartialCacheOwner<T>>,
 	at: usize,
 }
 
-impl<T> CacheReader<T> {
-	pub(super) fn new(reader: &Cache<T>) -> Self {
+impl<T> PartialCacheReader<T> {
+	pub(super) fn new(reader: &PartialCache<T>) -> Self {
 		Self { src: reader.src.clone(), at: 0 }
 	}
 	pub fn reader(&self) -> Self {
@@ -19,6 +20,9 @@ impl<T> CacheReader<T> {
 		let len = func(&data.items[self.at..]);
 		self.at += len;
 		len
+	}
+	pub fn get_buffer_size(&self) -> usize {
+		self.src.get_buffer_size()
 	}
 	pub fn read_for_each(&mut self, func: impl FnMut(&T)) -> usize {
 		self.read_with(|src| src.iter().map(func).count())
@@ -41,7 +45,7 @@ impl<T> CacheReader<T> {
 	}
 }
 
-impl std::io::Read for CacheReader<u8> {
+impl std::io::Read for PartialCacheReader<u8> {
 	fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
 		Ok(self.read_into_slice(buf))
 	}

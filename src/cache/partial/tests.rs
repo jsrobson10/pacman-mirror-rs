@@ -1,10 +1,10 @@
-use super::Cache;
+use super::PartialCache;
 
 static ITEMS: &[u64] = &[0, 2, 4, 8];
 
 #[test]
 fn test() {
-	let cache = Cache::<u64>::new();
+	let cache = PartialCache::<u64>::new();
 
 	cache.extend(ITEMS.iter().copied());
 
