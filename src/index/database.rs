@@ -35,7 +35,9 @@ fn send_database(writer: os_pipe::PipeWriter, repo: &RepoHolder, files: bool) ->
 			v
 		}, std::io::empty())?;
 		if let Some(desc) = package.desc.as_ref() {
-			send_file(&mut tar_builder, "desc", desc.as_bytes())?;
+			let mut bytes = Vec::new();
+			desc::writer::write(&mut bytes, desc.iter().map(|(k,v)| (&**k, &**v)))?;
+			send_file(&mut tar_builder, "desc", &bytes)?;
 		}
 		if let Some(files) = package.files.as_ref().filter(|_| files) {
 			send_file(&mut tar_builder, "files", files.as_bytes())?;

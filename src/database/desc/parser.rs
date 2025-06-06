@@ -1,52 +1,67 @@
-use std::io::BufRead;
+use owning_ref::ArcRef;
+use thiserror::Error;
+
+use crate::database::desc::cursor::Cursor;
 
 
-pub struct DescParser<R> where R: BufRead {
-	src: R,
+#[derive(Debug,Error)]
+pub enum ParseError {
+	#[error("End of file: {}", Cursor::new(src.clone(), src.len()))]
+	Eof { src: ArcRef<str> },
+	#[error("Unexpected character in name: {cursor}, expected: {expected:?}")]
+	Name { cursor: Cursor, expected: char },
 }
 
-impl<R> DescParser<R> where R: BufRead {
-	pub fn new(src: R) -> Self {
-		Self { src }
-	}
-}
+pub fn parse(src: ArcRef<str>, mut dst_func: impl FnMut(ArcRef<str>, ArcRef<str>)) -> Result<(), ParseError> {
+	let mut it = src.char_indices();
 
-impl<R> Iterator for DescParser<R> where R: BufRead {
-	type Item = anyhow::Result<(String, String)>;
-	fn next(&mut self) -> Option<Self::Item> {
-		let mut field = String::new();
-		let mut body = String::new();
-		loop {
-			match self.src.read_line(&mut field) {
-				Ok(len) => match len {
-					0 => return None,
-					1 => continue,
-					_ => break,
+	while let Some((idx, ch)) = it.next() {
+		let name_start = idx + 1;
+		let mut name = None;
+		if ch != '%' {
+			return Err(ParseError::Name { cursor: Cursor::new(src, idx), expected: '%' });
+		}
+		for (idx, ch) in it.by_ref() {
+			match ch {
+				'%' => {
+					name = Some(src.clone().map(|v| &v[name_start..idx]));
+					break;
 				}
-				Err(err) => {
-					return Some(Err(err.into()));
+				'\n' => {
+					return Err(ParseError::Name { cursor: Cursor::new(src, idx), expected: '%' });
 				}
+				_ => {}
 			}
 		}
-		loop {
-			match self.src.read_line(&mut body) {
-				Ok(len) => {
-					if len <= 1 {
-						break;
-					}
+		let (Some(name), Some((idx, ch))) = (name, it.next()) else {
+			return Err(ParseError::Eof { src });
+		};
+		if ch != '\n' {
+			return Err(ParseError::Name { cursor: Cursor::new(src, idx), expected: '\n' });
+		}
+		let body_start = idx + 1;
+		let mut body = None;
+		let mut found_nl = true;
+		for (_, ch) in it.by_ref() {
+			match (ch, found_nl) {
+				('\n', true) => {
+					body = Some(src.clone().map(|v| &v[body_start..]));
+					break;
 				}
-				Err(err) => {
-					return Some(Err(err.into()));
+				('\n', false) => {
+					found_nl = true;
 				}
+				(_, true) => {
+					found_nl = false;
+				}
+				_ => {}
 			}
 		}
-		while field.ends_with('\n') {
-			field.pop();
-		}
-		while body.ends_with('\n') {
-			body.pop();
-		}
-		Some(Ok((field, body)))
+		let Some(body) = body else {
+			continue;
+		};
+		dst_func(name, body);
 	}
+	Ok(())
 }
 

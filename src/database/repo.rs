@@ -1,10 +1,11 @@
 use std::{collections::HashMap, io::Read, path::PathBuf, sync::{Arc, Mutex}, time::Instant};
 use flate2::read::GzDecoder;
 use itertools::Itertools;
+use owning_ref::{ArcRef, OwningRef};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use crate::config::{self, CONFIG};
 
-use super::package::Package;
+use super::{desc, package::Package};
 
 pub mod holder;
 
@@ -52,8 +53,12 @@ impl Repo {
 					"desc" => {
 						if dst.desc.is_none() {
 							let mut str = String::new();
+							let mut desc = HashMap::new();
 							entry.read_to_string(&mut str)?;
-							dst.desc = Some(str);
+							desc::parser::parse(ArcRef::new(Arc::<str>::from(str)), |k,v| {
+								desc.insert(k,v);
+							})?;
+							dst.desc = Some(desc);
 						}
 					}
 					"files" => {
