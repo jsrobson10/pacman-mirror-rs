@@ -1,6 +1,6 @@
 pub mod database;
 pub mod package;
-pub mod signature;
+pub mod property;
 pub mod repo_list;
 pub mod package_list;
 pub mod item;
@@ -9,7 +9,7 @@ use maud::html;
 
 pub use {
 	package::get_package,
-	signature::get_signature,
+	property::get_property,
 	database::get_database,
 	repo_list::get_repo_list,
 	package_list::get_package_list,

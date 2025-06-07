@@ -2,7 +2,7 @@ use itertools::Itertools;
 use maud::html;
 use rouille::{Request, Response};
 
-use crate::{cache::DataSource, config::CONFIG, database::DB};
+use crate::{cache::DataSource, config::CONFIG, database::DB, vercmp};
 
 use super::template;
 
@@ -21,11 +21,15 @@ pub fn get_package_list(req: &Request, repo: String) -> anyhow::Result<Response>
 				"Partial"
 			}
 			DataSource::Memory(_) => {
-				"Full"
+				"Memory"
 			}
 		})
 	}).collect_vec();
-	pkgs.sort_by(|a,b| a.0.cmp(b.0));
+	pkgs.sort_by(|a,b| {
+		a.0.cmp(b.0).then_with(|| {
+			vercmp::alpm_pkg_ver_cmp(b.2, a.2)
+		})
+	});
 
 	Ok(Response::html(template(req.raw_url(), html! {
 		table {
@@ -37,7 +41,11 @@ pub fn get_package_list(req: &Request, repo: String) -> anyhow::Result<Response>
 			}
 			@for (name, filename, version, mirror_count, cache_state) in pkgs {
 				tr {
-					td { a href=(filename) { (name) } " (" a href={ (filename) ".sig" } { "sig" } ")" }
+					td {
+						a href=(filename) { (name) }
+						" (" a href={ (filename) ".sha256" } { "hash" } ")"
+						" (" a href={ (filename) ".sig" } { "sig" } ")"
+					}
 					td { (version) }
 					td { (mirror_count) " / " (CONFIG.mirrors.len()) }
 					td { (cache_state) }

@@ -3,7 +3,7 @@ use rouille::Response;
 
 use crate::database::DB;
 
-use super::{get_database, get_package, get_signature};
+use super::{get_database, get_package, get_property, property::PropertyType};
 
 
 pub fn get_item(repo_name: String, file: String) -> anyhow::Result<Response> {
@@ -24,7 +24,10 @@ pub fn get_item(repo_name: String, file: String) -> anyhow::Result<Response> {
 		}
 	}
 	if let Some(file) = file.strip_suffix(".sig") {
-		return get_signature(repo, file);
+		return get_property(repo, file, PropertyType::PgpSig);
+	}
+	if let Some(file) = file.strip_suffix(".sha256") {
+		return get_property(repo, file, PropertyType::Sha256);
 	}
 	get_package(repo, &file)
 }

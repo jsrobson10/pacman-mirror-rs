@@ -9,7 +9,7 @@ fn send_database(writer: os_pipe::PipeWriter, repo: &RepoHolder, files: bool) ->
 	let repo = repo.get_or_refresh();
 	let mut tar_builder = tar::Builder::new(flate2::write::GzEncoder::new(writer, flate2::Compression::new(1)));
 
-	for package in repo.packages_by_name.values().flat_map(|path| repo.packages.get(path)) {
+	for package in repo.packages_by_name.values().flat_map(|v| repo.packages.get(v.filename.as_ref())) {
 		let path = PathBuf::from(format!("{}-{}", package.desc.name.as_ref(), package.desc.version.as_ref()));
 		let now = SystemTime::UNIX_EPOCH.elapsed().map(|v| v.as_secs()).unwrap_or(0);
 

@@ -1,6 +1,6 @@
 use std::{io::{Cursor, Read, Write}, path::PathBuf, sync::{mpsc, Arc}};
 use anyhow::{anyhow, bail};
-use log::{debug, error, info, warn};
+use log::{error, info, warn};
 use os_pipe::PipeWriter;
 use rand::seq::SliceRandom;
 use rouille::{Response, ResponseBody};
@@ -101,12 +101,12 @@ pub fn get_package(repo_holder: &'static RepoHolder, file: &str) -> anyhow::Resu
 				}
 				let file = file.to_owned();
 				std::thread::spawn(move || {
-					debug!("Download started: {}", url.to_string_lossy());
+					info!("Started download: {}", url.to_string_lossy());
 					if let Err(err) = download_package(repo_holder, file, res, writer) {
 						error!("{err}");
 						return;
 					}
-					info!("Download: {}", url.to_string_lossy());
+					info!("Download complete: {}", url.to_string_lossy());
 				});
 				break;
 			}

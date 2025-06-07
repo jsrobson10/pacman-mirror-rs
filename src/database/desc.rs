@@ -1,7 +1,5 @@
-use std::{collections::HashMap, io::{Read, Write}, sync::Arc, time::{Duration, SystemTime}};
+use std::{collections::HashMap, io::Write, sync::Arc, time::{Duration, SystemTime}};
 
-use base64::{prelude::BASE64_STANDARD, Engine};
-use log::trace;
 use owning_ref::ArcRef;
 use parser::ParseError;
 

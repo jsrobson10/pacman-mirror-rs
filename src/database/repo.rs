@@ -1,19 +1,19 @@
-use std::{cmp::Ordering, collections::{hash_map::Entry, HashMap}, io::Read, path::PathBuf, sync::{Arc, Mutex}, time::{Instant, SystemTime}};
+use std::{cmp::Ordering, collections::{hash_map::Entry, HashMap}, io::Read, path::PathBuf, sync::Mutex, time::SystemTime};
 use flate2::read::GzDecoder;
 use itertools::Itertools;
 use log::{debug, error, info};
-use owning_ref::{ArcRef, OwningRef};
+use owning_ref::ArcRef;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use crate::{cache::Cache, config::{self, CONFIG}, vercmp};
+use crate::{config::CONFIG, vercmp};
 
-use super::{desc::{self, Desc}, mirror::Mirror, package::Package};
+use super::{desc::Desc, mirror::Mirror, package::{Package, PackageRef}};
 
 pub mod holder;
 
 pub struct Repo {
 	pub last_updated: SystemTime,
 	pub packages: HashMap<ArcRef<str>, Package>,
-	pub packages_by_name: HashMap<ArcRef<str>, ArcRef<str>>,
+	pub packages_by_name: HashMap<ArcRef<str>, PackageRef>,
 }
 
 fn get_from_repo(repo_name: &str, mirror: &Mirror) -> anyhow::Result<Vec<Package>> {
@@ -77,12 +77,12 @@ impl Repo {
 			for mut package in l_packages {
 				match packages_by_name.entry(package.desc.name.clone()) {
 					Entry::Vacant(dst) => {
-						dst.insert(package.desc.filename.clone());
+						dst.insert(PackageRef::new(&package.desc));
 					}
 					Entry::Occupied(mut dst) => {
 						let dst = dst.get_mut();
-						if vercmp::alpm_pkg_ver_cmp(package.desc.filename.as_ref(), dst.as_ref()) == Ordering::Greater {
-							*dst = package.desc.filename.clone();
+						if vercmp::alpm_pkg_ver_cmp(package.desc.version.as_ref(), dst.version.as_ref()) == Ordering::Greater {
+							*dst = PackageRef::new(&package.desc);
 						}
 					}
 				}
