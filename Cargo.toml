@@ -18,7 +18,7 @@ os_pipe = "1.2.2"
 owning_ref = "0.4.1"
 rand = "0.9.1"
 rayon = "1.10.0"
-rouille = "3.6.2"
+rouille = { git = "https://github.com/jsrobson10/rouille/" }
 semver = { version = "1.0.26", features = ["serde"] }
 serde = { version = "1.0.219", features = ["derive", "rc"] }
 serde_yml = "0.0.12"

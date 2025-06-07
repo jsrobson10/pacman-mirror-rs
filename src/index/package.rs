@@ -126,7 +126,7 @@ pub fn get_package(repo_holder: &'static RepoHolder, file: &str) -> anyhow::Resu
 		headers: vec![
 			("Content-Type".into(), "application/x-tar".into()),
 		],
-		data: response_body,
+		data: response_body.with_chunked_threshold(usize::max_value()),
 		upgrade: None,
 	})
 }
