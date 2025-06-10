@@ -3,6 +3,7 @@ use std::sync::Mutex;
 pub use data_source::DataSource;
 
 pub mod data_source;
+pub mod partial;
 
 pub struct Cache {
 	src: Mutex<DataSource>,
