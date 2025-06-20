@@ -8,32 +8,32 @@ pub mod item;
 use maud::html;
 
 pub use {
-	package::get_package,
-	property::get_property,
-	database::get_database,
-	repo_list::get_repo_list,
-	package_list::get_package_list,
-	item::get_item,
+    package::get_package,
+    property::get_property,
+    database::get_database,
+    repo_list::get_repo_list,
+    package_list::get_package_list,
+    item::get_item,
 };
 
 fn template(path: &str, body: maud::Markup) -> maud::Markup {
-	html! {
-		(maud::DOCTYPE)
-		head {
-			title { "Index of " (path) }
-			style { r#"
-			th, td {
-				padding: 0 1.5em;
-			}
-			table {
-				border: 1px black solid;
-			}
-			"# }
-		}
-		body {
-			h1 { "Index of " (path) }
-			(body)
-		}
-	}
+    html! {
+        (maud::DOCTYPE)
+        head {
+            title { "Index of " (path) }
+            style { r#"
+            th, td {
+                padding: 0 1.5em;
+            }
+            table {
+                border: 1px black solid;
+            }
+            "# }
+        }
+        body {
+            h1 { "Index of " (path) }
+            (body)
+        }
+    }
 }
 

@@ -7,11 +7,11 @@ use super::template;
 
 
 pub fn get_repo_list(req: &Request) -> Response {
-	Response::html(template(req.raw_url(), html! {
-		ul {
-			@for repo in CONFIG.repos.iter() {
-				li { a href=(repo) { (repo) } }
-			}
-		}
-	}))
+    Response::html(template(req.raw_url(), html! {
+        ul {
+            @for repo in CONFIG.repos.iter() {
+                li { a href=(repo) { (repo) } }
+            }
+        }
+    }))
 }

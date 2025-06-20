@@ -11,20 +11,20 @@ pub mod package;
 pub mod repo;
 
 pub struct Database {
-	pub repos: HashMap<Arc<str>, RepoHolder>,
+    pub repos: HashMap<Arc<str>, RepoHolder>,
 }
 
 impl Database {
-	fn new() -> Self {
-		let mut repos = HashMap::new();
-		for name in CONFIG.repos.iter() {
-			repos.insert(name.clone(), RepoHolder::new(name.clone()));
-		}
-		Self { repos }
-	}
+    fn new() -> Self {
+        let mut repos = HashMap::new();
+        for name in CONFIG.repos.iter() {
+            repos.insert(name.clone(), RepoHolder::new(name.clone()));
+        }
+        Self { repos }
+    }
 }
 
 lazy_static! {
-	pub static ref DB: Database = Database::new();
+    pub static ref DB: Database = Database::new();
 }
 

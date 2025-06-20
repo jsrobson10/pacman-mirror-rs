@@ -8,14 +8,14 @@ use crate::config::CONFIG;
 pub struct Mirror(Arc<str>);
 
 impl Mirror {
-	pub fn new(path: String) -> Self {
-		Self(path.into())
-	}
-	pub fn get(&self, repo: &str) -> String {
-		self.0
-			.replace("$repo", repo)
-			.replace("$name", &CONFIG.name)
-			.replace("$arch", &CONFIG.arch)
-	}
+    pub fn new(path: String) -> Self {
+        Self(path.into())
+    }
+    pub fn get(&self, repo: &str) -> String {
+        self.0
+            .replace("$repo", repo)
+            .replace("$name", &CONFIG.name)
+            .replace("$arch", &CONFIG.arch)
+    }
 }
 

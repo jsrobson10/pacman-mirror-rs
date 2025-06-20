@@ -2,8 +2,8 @@ use std::{io::Write, mem::ManuallyDrop, sync::{mpsc, Arc}};
 
 
 struct Receiver {
-	pipe: os_pipe::PipeWriter,
-	at: usize,
+    pipe: os_pipe::PipeWriter,
+    at: usize,
 }
 
 pub struct PartialCacheWriter {
