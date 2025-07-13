@@ -1,27 +1,25 @@
-use std::{io::{Cursor, Read, Write}, path::PathBuf, sync::{mpsc, Arc}};
+use std::{io::{Cursor, Read, Write}, path::PathBuf};
 use anyhow::{anyhow, bail};
 use log::{error, info, warn};
 use rand::seq::SliceRandom;
 use rouille::{Response, ResponseBody};
 use sha2::{Digest, Sha256};
 
-use crate::{cache::{partial::PartialCacheWriter, DataSource}, database::repo::holder::RepoHolder};
+use crate::{cache::{self, DataSource}, database::repo::holder::RepoHolder};
 
 
-pub fn download_package(repo_holder: &'static RepoHolder, file: String, mut src: impl Read, pipe: os_pipe::PipeWriter) -> anyhow::Result<()> {
+pub fn download_package(repo_holder: &'static RepoHolder, file: String, mut src: impl Read, mut dst: cache::partial::Writer) -> anyhow::Result<()> {
     let repo = repo_holder.get_without_refresh();
     let package = repo.packages.get(file.as_str()).ok_or_else(|| anyhow!("Package is None"))?;
+    let dst_source = dst.source().clone();
 
-    let (tx, rx) = mpsc::channel();
-    let mut dst = PartialCacheWriter::new(rx);
-
-    dst.add_pipe(pipe);
-    package.cache.set(DataSource::Partial(tx));
+    package.cache.set(DataSource::Partial(dst_source.clone()));
 
     let mut do_transfer = || -> std::io::Result<()> {
         let mut buffer = [0u8; 16384];
         while let len@1.. = src.read(&mut buffer)? {
-            dst.write_all(&buffer[..len]);
+            dst.write_all(&buffer[..len])?;
+            dst.flush()?;
         }
         Ok(())
     };
@@ -29,13 +27,10 @@ pub fn download_package(repo_holder: &'static RepoHolder, file: String, mut src:
         package.cache.set(DataSource::Empty);
         return Err(err.into());
     }
-    if Sha256::digest(dst.data()).as_slice() != package.desc.sha256sum {
+    if Sha256::digest(&*dst_source.data.read().unwrap()).as_slice() != package.desc.sha256sum {
         package.cache.set(DataSource::Empty);
         bail!("Checksums do not match");
     }
-    dst.release_data_and_flush(|data| {
-        package.cache.set(DataSource::Memory(data));
-    });
     Ok(())
 }
 
@@ -46,8 +41,9 @@ pub fn get_package(repo_holder: &'static RepoHolder, file: &str) -> anyhow::Resu
     };
     let response_body = match package.cache.get() {
         DataSource::Empty => {
-            let (reader, writer) = os_pipe::pipe()?;
             let mut mirrors = package.mirrors.clone();
+            let writer = cache::partial::Writer::new();
+            let reader = writer.source().reader();
             mirrors.shuffle(&mut rand::rng());
 
             for mirror in mirrors {
@@ -74,9 +70,8 @@ pub fn get_package(repo_holder: &'static RepoHolder, file: &str) -> anyhow::Resu
             }
             ResponseBody::from_reader_and_size(reader, package.desc.csize)
         }
-        DataSource::Partial(tx) => {
-            let (reader, writer) = os_pipe::pipe()?;
-            tx.send(writer)?;
+        DataSource::Partial(source) => {
+            let reader = source.reader();
             ResponseBody::from_reader_and_size(reader, package.desc.csize)
         }
         DataSource::Memory(buff) => {

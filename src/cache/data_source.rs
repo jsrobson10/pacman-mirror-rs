@@ -1,10 +1,12 @@
-use std::sync::{mpsc, Arc};
+use std::sync::Arc;
+
+use super::partial;
 
 
 #[derive(Clone)]
 pub enum DataSource {
     Empty,
-    Partial(mpsc::Sender<os_pipe::PipeWriter>),
+    Partial(Arc<partial::Source>),
     Memory(Arc<[u8]>),
 }
 
