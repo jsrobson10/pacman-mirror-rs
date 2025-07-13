@@ -1,4 +1,4 @@
-use std::{io::Write, mem::ManuallyDrop, sync::{mpsc, Arc}};
+use std::{io::Write, sync::{mpsc, Arc}};
 
 
 struct Receiver {

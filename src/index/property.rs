@@ -10,7 +10,7 @@ pub enum PropertyType {
 }
 
 pub fn get_property(repo_holder: &'static RepoHolder, file: &str, ty: PropertyType) -> anyhow::Result<Response> {
-    let repo = repo_holder.get_or_refresh();
+    let repo = repo_holder.get_without_refresh();
     let Some(package) = repo.packages.get(file) else {
         return Ok(Response::empty_404());
     };

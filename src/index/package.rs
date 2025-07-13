@@ -40,7 +40,7 @@ pub fn download_package(repo_holder: &'static RepoHolder, file: String, mut src:
 }
 
 pub fn get_package(repo_holder: &'static RepoHolder, file: &str) -> anyhow::Result<Response> {
-    let repo = repo_holder.get_or_refresh();
+    let repo = repo_holder.get_without_refresh();
     let Some(package) = repo.packages.get(file) else {
         return Ok(Response::empty_404());
     };
