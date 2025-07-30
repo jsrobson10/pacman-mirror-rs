@@ -1,34 +1,34 @@
+use std::sync::Arc;
+
 use itertools::Itertools;
 use rouille::Response;
 
-use crate::database::DB;
+use crate::Index;
 
-use super::{get_database, get_package, get_property, property::PropertyType};
+use super::{get_property, property::PropertyType};
 
 
-pub fn get_item(repo_name: String, file: String) -> anyhow::Result<Response> {
-    let Some(repo) = DB.repos.get(repo_name.as_str()) else {
-        return Ok(Response::empty_404());
-    };
-    if let Some([_, end]) = file.split('.').collect_array().filter(|v| v[0] == repo_name) {
-        match end {
-            "db" => {
-                return get_database(repo, false);
-            }
-            "files" => {
-                return get_database(repo, true);
-            }
-            _ => {
-                return Ok(Response::empty_404());
+impl Index {
+    pub fn get_item(self: &Arc<Self>, repo_name: String, file: String) -> anyhow::Result<Response> {
+        let Some(repo) = self.db.repos.get(repo_name.as_str()).cloned() else {
+            return Ok(Response::empty_404());
+        };
+        if let Some([_, end]) = file.split('.').collect_array().filter(|v| v[0] == repo_name) {
+            return match end {
+                "db" =>
+                    self.get_database(repo, false),
+                "files" =>
+                    self.get_database(repo, true),
+                _ => Ok(Response::empty_404()),
             }
         }
+        if let Some(file) = file.strip_suffix(".sig") {
+            return get_property(repo, file, PropertyType::PgpSig);
+        }
+        if let Some(file) = file.strip_suffix(".sha256") {
+            return get_property(repo, file, PropertyType::Sha256);
+        }
+        self.get_package(repo, &file)
     }
-    if let Some(file) = file.strip_suffix(".sig") {
-        return get_property(repo, file, PropertyType::PgpSig);
-    }
-    if let Some(file) = file.strip_suffix(".sha256") {
-        return get_property(repo, file, PropertyType::Sha256);
-    }
-    get_package(repo, &file)
 }
 

@@ -5,16 +5,25 @@ pub mod repo_list;
 pub mod package_list;
 pub mod item;
 
+use std::sync::Arc;
+
 use maud::html;
 
-pub use {
-    package::get_package,
-    property::get_property,
-    database::get_database,
-    repo_list::get_repo_list,
-    package_list::get_package_list,
-    item::get_item,
-};
+use crate::{Config, Database};
+
+pub use property::get_property;
+
+pub struct Index {
+    db: Arc<Database>,
+    config: Arc<Config>,
+}
+
+impl Index {
+    pub fn new(db: Arc<Database>) -> Self {
+        let config = db.config.clone();
+        Self { db, config }
+    }
+}
 
 fn template(path: &str, body: maud::Markup) -> maud::Markup {
     html! {

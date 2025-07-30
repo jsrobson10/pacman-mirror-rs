@@ -1,10 +1,10 @@
-use std::{cmp::Ordering, collections::{hash_map::Entry, HashMap}, io::Read, path::PathBuf, sync::Mutex, time::SystemTime};
+use std::{cmp::Ordering, collections::{hash_map::Entry, HashMap}, io::Read, path::PathBuf, sync::{Arc, Mutex}, time::SystemTime};
 use flate2::read::GzDecoder;
 use itertools::Itertools;
 use log::{debug, error, info};
 use owning_ref::ArcRef;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use crate::{config::CONFIG, vercmp};
+use crate::{vercmp, Config};
 
 use super::{desc::Desc, mirror::Mirror, package::{Package, PackageRef}};
 
@@ -14,10 +14,11 @@ pub struct Repo {
     pub last_updated: SystemTime,
     pub packages: HashMap<ArcRef<str>, Package>,
     pub packages_by_name: HashMap<ArcRef<str>, PackageRef>,
+    pub config: Arc<Config>,
 }
 
-fn get_from_repo(repo_name: &str, mirror: &Mirror) -> anyhow::Result<Vec<Package>> {
-    let url = format!("{}.db", PathBuf::from(mirror.get(&repo_name)).join(repo_name).to_string_lossy());
+fn get_from_repo(config: &Config, repo_name: &str, mirror: &Mirror) -> anyhow::Result<Vec<Package>> {
+    let url = format!("{}.db", PathBuf::from(mirror.get(config, &repo_name)).join(repo_name).to_string_lossy());
     let res = minreq::get(&url).send_lazy()?;
     let mut data = Vec::new();
 
@@ -47,11 +48,12 @@ fn get_from_repo(repo_name: &str, mirror: &Mirror) -> anyhow::Result<Vec<Package
 }
 
 impl Repo {
-    pub fn empty() -> Repo {
+    pub fn empty(config: Arc<Config>) -> Repo {
         Self {
             last_updated: SystemTime::UNIX_EPOCH,
             packages: HashMap::new(),
             packages_by_name: HashMap::new(),
+            config,
         }
     }
     pub fn refresh(&mut self, repo_name: &str) {
@@ -63,8 +65,8 @@ impl Repo {
         let size_start = self.packages.len();
         let packages = Mutex::new((&mut self.packages, &mut self.packages_by_name));
 
-        CONFIG.mirrors.par_iter().for_each(|mirror| {
-            let l_packages = match get_from_repo(repo_name, mirror) {
+        self.config.mirrors.par_iter().for_each(|mirror| {
+            let l_packages = match get_from_repo(&self.config, repo_name, mirror) {
                 Ok(data) => data,
                 Err(err) => {
                     error!("{err}");

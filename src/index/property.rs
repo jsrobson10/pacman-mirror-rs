@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use base64::{prelude::BASE64_STANDARD, Engine};
 use rouille::Response;
 
@@ -9,7 +11,7 @@ pub enum PropertyType {
     Sha256,
 }
 
-pub fn get_property(repo_holder: &'static RepoHolder, file: &str, ty: PropertyType) -> anyhow::Result<Response> {
+pub fn get_property(repo_holder: Arc<RepoHolder>, file: &str, ty: PropertyType) -> anyhow::Result<Response> {
     let repo = repo_holder.get_without_refresh();
     let Some(package) = repo.packages.get(file) else {
         return Ok(Response::empty_404());

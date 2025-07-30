@@ -1,6 +1,5 @@
 use std::{sync::Arc, time::Duration};
 
-use lazy_static::lazy_static;
 use serde::{Serialize, Deserialize};
 use crate::database::mirror::Mirror;
 
@@ -41,9 +40,5 @@ impl Config {
         std::fs::write(path, serde_yml::to_string(&cfg)?)?;
         Ok(cfg)
     }
-}
-
-lazy_static! {
-    pub static ref CONFIG: Config = Config::load("config.yml").unwrap();
 }
 
