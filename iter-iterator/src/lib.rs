@@ -18,6 +18,7 @@ impl<I,U,T> Iterator for IterIterator<I,U,T> where I: Iterator<Item = T>, U: Clo
             let at = self.at % self.iters.len();
             let item = &mut self.iters[at];
             if let Some(value) = item.0.next() {
+                self.at += 1;
                 return Some((value, item.1.clone()));
             }
             self.iters.remove(at);

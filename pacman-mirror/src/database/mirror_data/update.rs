@@ -2,7 +2,7 @@ use std::{io::Read, sync::Arc};
 
 use flate2::read::GzDecoder;
 use itertools::Itertools;
-use log::trace;
+use log::{debug, trace};
 use replay_buffer::ReplayBufferWriter;
 
 use crate::database::{desc::Desc, mirror_data::MirrorData};
@@ -29,7 +29,7 @@ impl MirrorData {
             anyhow::bail!("Request {repo_url} failed with code {}: {}", res.status_code, res.reason_phrase);
         }
         
-        trace!("Started connection: {repo_url}");
+        debug!("Started connection: {repo_url}");
 
         let mut archive = tar::Archive::new(GzDecoder::new(res));
         for entry in archive.entries()? {
@@ -49,6 +49,7 @@ impl MirrorData {
             };
             dst.push(desc);
         }
+        debug!("Wrapping up: {repo_url}");
         Ok(())
     }
 }

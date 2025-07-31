@@ -56,7 +56,7 @@ impl Index {
 
         std::thread::spawn(move || {
             if let Err(err) = db.send_database(writer, repo) {
-                error!("{err}");
+                error!("{err:?}");
             }
         });
     
