@@ -1,21 +1,20 @@
 use std::{io::{Read, Write}, path::Path, sync::Arc};
 use anyhow::{anyhow, bail};
-use log::{error, info, warn};
+use log::{debug, error, info, warn};
 use rand::seq::SliceRandom;
-use replay_buffer::ReplayBuffer;
+use replay_buffer::ReplayBufferWriter;
 use rouille::{Response, ResponseBody};
 use sha2::Digest;
 
 use crate::{cache::DataSource, database::Repo, Index};
 
 
-pub fn download_package(repo: Arc<Repo>, file: Arc<str>, mut src: impl Read, cache: Arc<ReplayBuffer<u8>>) -> anyhow::Result<()> {
+pub fn download_package(repo: Arc<Repo>, name: Arc<str>, mut src: impl Read, mut dst: ReplayBufferWriter<u8>) -> anyhow::Result<()> {
     let lock = repo.packages.read().unwrap();
-    let package = lock.get(file.as_ref()).ok_or_else(|| anyhow!("Package is None"))?;
+    let package = lock.get(name.as_ref()).ok_or_else(|| anyhow!("Package {name} is None"))?;
     let mut hasher = sha2::Sha256::new();
-    let mut dst = cache.write();
 
-    package.cache.set(DataSource::Memory(cache.clone()));
+    package.cache.set(DataSource::Memory(dst.source().clone()));
 
     let mut do_transfer = || -> std::io::Result<()> {
         let mut buffer = [0u8; 16384];
@@ -32,23 +31,28 @@ pub fn download_package(repo: Arc<Repo>, file: Arc<str>, mut src: impl Read, cac
         package.cache.set(DataSource::Empty);
         return Err(err.into());
     }
-    if hasher.finalize().as_slice() != package.desc.sha256sum {
+    let digest = hasher.finalize();
+    if digest.as_slice() != package.desc.sha256sum {
         package.cache.set(DataSource::Empty);
         bail!("Checksums do not match");
     }
+    debug!("done transferring file: {} ({})", name, hex::encode(digest.as_slice()));
+
     Ok(())
 }
 
 impl Index {
     pub fn get_package(&self, repo: Arc<Repo>, file: Arc<str>) -> anyhow::Result<Response> {
         let packages_lock = repo.packages.read().unwrap();
-        let Some(package) = packages_lock.get(file.as_ref()) else {
+        let package_name = repo.get_name_from_filename(file.as_ref());
+        let Some(package) = package_name.and_then(|v| packages_lock.get(v.as_ref())) else {
             return Ok(Response::empty_404());
         };
         let response_body = match package.cache.get() {
             DataSource::Empty => {
                 let mut mirrors = package.mirrors.clone();
-                let cache = ReplayBuffer::empty();
+                let cache = ReplayBufferWriter::new();
+                let reader = cache.source().read();
                 mirrors.shuffle(&mut rand::rng());
     
                 for mirror in mirrors {
@@ -62,10 +66,10 @@ impl Index {
                         warn!("{url_str} got {} {}", res.status_code, res.reason_phrase);
                         continue;
                     }
-                    let (file, repo, cache) = (file.clone(), repo.clone(), cache.clone());
+                    let (name, repo, cache) = (package.desc.name.clone(), repo.clone(), cache);
                     std::thread::spawn(move || {
                         info!("Started download: {}", url.to_string_lossy());
-                        if let Err(err) = download_package(repo, file, res, cache) {
+                        if let Err(err) = download_package(repo, name, res, cache) {
                             error!("{err}");
                             return;
                         }
@@ -73,7 +77,7 @@ impl Index {
                     });
                     break;
                 }
-                ResponseBody::from_reader_and_size(cache.read(), package.desc.csize)
+                ResponseBody::from_reader_and_size(reader, package.desc.csize)
             }
             DataSource::Memory(source) => {
                 let reader = source.read();

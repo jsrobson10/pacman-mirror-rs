@@ -8,10 +8,8 @@ pub struct ReplayBufferWriter<T> where T: Clone {
 }
 
 impl<T> ReplayBufferWriter<T> where T: Clone {
-    pub fn new(base: Arc<ReplayBuffer<T>>) -> Self {
-        base.as_ref().state.lock().unwrap()
-            .num_writing += 1;
-        Self { base }
+    pub fn new() -> Self {
+        Self { base: ReplayBuffer::empty() }
     }
     pub fn push(&self, value: T) {
         let mut data = self.base.data.write().unwrap();
@@ -44,7 +42,7 @@ impl Write for ReplayBufferWriter<u8> {
 
 impl<T> Drop for ReplayBufferWriter<T> where T: Clone {
     fn drop(&mut self) {
-        self.base.state.lock().unwrap().num_writing -= 1;
+        self.base.state.lock().unwrap().is_writing = false;
         self.base.cvar.notify_all();
     }
 }

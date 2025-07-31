@@ -3,7 +3,7 @@ use std::{io::Read, sync::Arc};
 use flate2::read::GzDecoder;
 use itertools::Itertools;
 use log::trace;
-use replay_buffer::{ReplayBuffer, ReplayBufferWriter};
+use replay_buffer::ReplayBufferWriter;
 
 use crate::database::{desc::Desc, mirror_data::MirrorData};
 
@@ -13,9 +13,10 @@ impl MirrorData {
     pub fn prepare_for_update(&self) -> ReplayBufferWriter<Arc<Desc>> {
         let repo_url = &self.repo_url;
         trace!("Prepare for connection: {repo_url}");
-        let packages = ReplayBuffer::empty();
-        let packages_writer = packages.write();
-        *self.state.write().unwrap() = super::State { packages };
+        let packages_writer = ReplayBufferWriter::new();
+        *self.state.write().unwrap() = super::State {
+            packages: packages_writer.source().clone(),
+        };
         packages_writer
     }
 

@@ -13,7 +13,8 @@ pub struct Repo {
     pub config: Arc<Config>,
     pub mirrors: Vec<MirrorData>,
     pub packages: RwLock<HashMap<Arc<str>, Package>>,
-    pub last_updated: Mutex<SystemTime>,
+    package_filename_lookup: RwLock<HashMap<Arc<str>, Arc<str>>>,
+    last_updated: Mutex<SystemTime>,
 }
 
 impl Repo {
@@ -25,6 +26,7 @@ impl Repo {
             config,
             mirrors,
             packages: RwLock::new(HashMap::new()),
+            package_filename_lookup: RwLock::new(HashMap::new()),
             last_updated: Mutex::new(SystemTime::UNIX_EPOCH),
         }
     }
@@ -44,6 +46,9 @@ impl Repo {
             }
             _ => false,
         }
+    }
+    pub fn get_name_from_filename(&self, filename: &str) -> Option<Arc<str>> {
+        self.package_filename_lookup.read().unwrap().get(filename).cloned()
     }
     pub fn refresh_if_ready(&self, signal: Option<mpsc::Sender<()>>) {
         if !self.will_refresh() {
@@ -68,6 +73,7 @@ impl Repo {
             .map(|(mirror, writer)| (writer.source().clone().read(), mirror))
             .collect());
 
+
         let mut packages = self.packages.write().unwrap();
         let mut added = 0;
         let mut removed = 0;
@@ -90,6 +96,10 @@ impl Repo {
             if !r { removed += 1 };
             r
         });
+
+        *self.package_filename_lookup.write().unwrap() = packages.values()
+            .map(|pkg| (pkg.desc.filename.clone(), pkg.desc.name.clone()))
+            .collect();
 
         info!("Refreshed {repo_name}: {added} added {removed} removed");
     }

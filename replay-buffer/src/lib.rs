@@ -8,7 +8,7 @@ mod write;
 
 
 struct State {
-    num_writing: usize,
+    is_writing: bool,
     size: usize,
 }
 
@@ -19,11 +19,11 @@ pub struct ReplayBuffer<T> where T: Clone {
 }
 
 impl<T> ReplayBuffer<T> where T: Clone {
-    pub fn empty() -> Arc<Self> {
+    fn empty() -> Arc<Self> {
         Arc::new(Self {
             data: RwLock::new(Vec::new()),
             state: Mutex::new(State {
-                num_writing: 0,
+                is_writing: true,
                 size: 0,
             }),
             cvar: Condvar::new(),
@@ -32,26 +32,5 @@ impl<T> ReplayBuffer<T> where T: Clone {
     pub fn read(self: &Arc<Self>) -> ReplayBufferReader<T> {
         ReplayBufferReader::new(self.clone())
     }
-    pub fn write(self: &Arc<Self>) -> ReplayBufferWriter<T> {
-        ReplayBufferWriter::new(self.clone())
-    }
 }
 
-impl ReplayBuffer<u8> {
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::ReplayBuffer;
-
-    #[test]    
-    fn multiple_writers() {
-        let buf = ReplayBuffer::<()>::empty();
-        let w1 = buf.write(); assert!(w1.is_ok());
-        let w2 = buf.write(); assert!(w2.is_err());
-        drop(w1);
-        let w3 = buf.write(); assert!(w3.is_ok());
-        let w4 = buf.write(); assert!(w4.is_err());
-        let w5 = buf.write(); assert!(w5.is_err());
-    }
-}

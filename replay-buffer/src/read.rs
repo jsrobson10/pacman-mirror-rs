@@ -15,7 +15,7 @@ impl<T> ReplayBufferReader<T> where T: Clone {
     fn wait_for(&self, count: usize) {
         let target = self.at + count;
         let mut lock = self.base.state.lock().unwrap();
-        while lock.num_writing > 0 && lock.size < target {
+        while lock.is_writing && lock.size < target {
             lock = self.base.cvar.wait(lock).unwrap();
         }
     }
@@ -38,8 +38,9 @@ impl Read for ReplayBufferReader<u8> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         self.wait_for(buf.len());
         let lock = self.base.data.read().unwrap();
+        let data = &lock[self.at..];
         let count = buf.iter_mut()
-            .zip(lock.iter().copied())
+            .zip(data.iter().copied())
             .map(|(dst, src)| *dst = src)
             .count();
         self.at += count;

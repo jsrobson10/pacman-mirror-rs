@@ -1,6 +1,6 @@
 use std::{path::Path, sync::{Arc, RwLock}};
 
-use replay_buffer::ReplayBuffer;
+use replay_buffer::{ReplayBuffer, ReplayBufferWriter};
 
 use crate::{database::{desc::Desc, mirror::Mirror}, Config};
 
@@ -29,7 +29,7 @@ impl MirrorData {
             repo_url,
             db_url,
             state: RwLock::new(State {
-                packages: ReplayBuffer::empty(),
+                packages: ReplayBufferWriter::new().source().clone(),
             }),
         }
     }
