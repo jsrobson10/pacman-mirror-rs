@@ -2,28 +2,33 @@ use std::{io::Read, sync::Arc};
 
 use flate2::read::GzDecoder;
 use itertools::Itertools;
-use replay_buffer::{ReplayBuffer, ReplayBufferReader};
+use log::trace;
+use replay_buffer::{ReplayBuffer, ReplayBufferWriter};
 
 use crate::database::{desc::Desc, mirror_data::MirrorData};
 
 
 impl MirrorData {
 
-    pub fn update(&self) -> anyhow::Result<ReplayBufferReader<Arc<Desc>>> {
+    pub fn prepare_for_update(&self) -> ReplayBufferWriter<Arc<Desc>> {
+        let repo_url = &self.repo_url;
+        trace!("Prepare for connection: {repo_url}");
+        let packages = ReplayBuffer::empty();
+        let packages_writer = packages.write();
+        *self.state.write().unwrap() = super::State { packages };
+        packages_writer
+    }
+
+    pub fn update(&self, dst: &mut ReplayBufferWriter<Arc<Desc>>) -> anyhow::Result<()> {
 
         let repo_url = self.repo_url.as_ref();
-        let res = minreq::get(repo_url).send_lazy()?;
-        
+        let res = minreq::get(self.db_url.as_ref()).send_lazy()?;
+
         if res.status_code != 200 {
             anyhow::bail!("Request {repo_url} failed with code {}: {}", res.status_code, res.reason_phrase);
         }
-
-        let packages = ReplayBuffer::empty();
-        let packages_writer = packages.write();
         
-        *self.state.write().unwrap() = super::State {
-            packages: packages.clone(),
-        };
+        trace!("Started connection: {repo_url}");
 
         let mut archive = tar::Archive::new(GzDecoder::new(res));
         for entry in archive.entries()? {
@@ -41,9 +46,9 @@ impl MirrorData {
                 entry.read_to_string(&mut dst)?;
                 Desc::parse(dst.into())?
             };
-            packages_writer.push(desc);
+            dst.push(desc);
         }
-        Ok(packages.read())
+        Ok(())
     }
 }
 

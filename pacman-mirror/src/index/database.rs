@@ -1,4 +1,4 @@
-use std::{io::Cursor, path::PathBuf, sync::Arc, time::SystemTime};
+use std::{io::Cursor, path::PathBuf, sync::{mpsc, Arc}, time::SystemTime};
 use log::error;
 use rouille::{Response, ResponseBody};
 use tar::{EntryType, Header};
@@ -9,6 +9,15 @@ impl Index {
     fn send_database(&self, writer: os_pipe::PipeWriter, repo: Arc<Repo>) -> anyhow::Result<()> {
         let mut tar_builder = tar::Builder::new(flate2::write::GzEncoder::new(writer, flate2::Compression::new(1)));
 
+        if repo.should_refresh() {
+            let (tx, rx) = mpsc::channel::<()>();
+            std::thread::spawn({
+                let repo = repo.clone();
+                move || repo.refresh_if_ready(Some(tx))
+            });
+            // wait for the signal (its result doesn't matter)
+            _ = rx.recv();
+        }
         repo.get_from_mirrors(|desc| {
             let path = PathBuf::from(format!("{}-{}", desc.name.as_ref(), desc.version.as_ref()));
             let now = SystemTime::UNIX_EPOCH.elapsed().map(|v| v.as_secs()).unwrap_or(0);

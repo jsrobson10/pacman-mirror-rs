@@ -27,6 +27,9 @@ impl<T> ReplayBufferWriter<T> where T: Clone {
         state.size = data.len();
         self.base.cvar.notify_all();
     }
+    pub fn source(&self) -> &Arc<ReplayBuffer<T>> {
+        &self.base
+    }
 }
 
 impl Write for ReplayBufferWriter<u8> {

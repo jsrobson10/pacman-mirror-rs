@@ -1,7 +1,8 @@
-use std::{cmp::Ordering, collections::HashMap, sync::{Arc, Mutex, RwLock}, time::SystemTime};
+use std::{cmp::Ordering, collections::HashMap, sync::{mpsc, Arc, Mutex, RwLock}, time::SystemTime};
 use iter_iterator::IterIterator;
+use itertools::Itertools;
 use log::{debug, error, info};
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
 use crate::{database::mirror_data::MirrorData, Config};
 
 use super::package::Package;
@@ -10,19 +11,28 @@ use super::package::Package;
 pub struct Repo {
     pub name: Arc<str>,
     pub config: Arc<Config>,
-    pub mirrors: HashMap<Arc<str>, MirrorData>,
+    pub mirrors: Vec<MirrorData>,
     pub packages: RwLock<HashMap<Arc<str>, Package>>,
     pub last_updated: Mutex<SystemTime>,
 }
 
 impl Repo {
     pub fn empty(config: Arc<Config>, name: Arc<str>) -> Repo {
+        let mirrors = Vec::from_iter(config.mirrors.iter()
+            .map(|mirror| MirrorData::new(&config, mirror, &name)));
         Self {
             name,
             config,
-            mirrors: HashMap::new(),
+            mirrors,
             packages: RwLock::new(HashMap::new()),
             last_updated: Mutex::new(SystemTime::UNIX_EPOCH),
+        }
+    }
+    pub fn should_refresh(&self) -> bool {
+        let last_updated = self.last_updated.lock().unwrap();
+        match last_updated.elapsed().map(|v| v > self.config.timeout) {
+            Ok(true) => true,
+            _ => false,
         }
     }
     fn will_refresh(&self) -> bool {
@@ -35,20 +45,29 @@ impl Repo {
             _ => false,
         }
     }
-    pub fn refresh_if_ready(&self) {
+    pub fn refresh_if_ready(&self, signal: Option<mpsc::Sender<()>>) {
         if !self.will_refresh() {
             return;
         }
 
         let repo_name = &self.name;
-        debug!("Refreshing ${repo_name}");
+        debug!("Refreshing {repo_name}");
 
-        let iter = IterIterator::new(self.mirrors.par_iter()
-            .flat_map(|(_, mirror)| mirror.update()
-                .inspect_err(|err| error!("mirror {}: {err:?}", mirror.repo_url))
-                .map(|iter| (iter, mirror))
-                .ok())
+        let mut buf_writers = self.mirrors.iter()
+            .map(|v| (v, v.prepare_for_update()))
+            .collect_vec();
+        drop(signal);
+
+        buf_writers.par_iter_mut().for_each(|(mirror, writer)| {
+            if let Err(err) = mirror.update(writer) {
+                error!("mirror {}: {err:?}", mirror.repo_url);
+            }
+        });
+
+        let iter = IterIterator::new(buf_writers.into_iter()
+            .map(|(mirror, writer)| (writer.source().clone().read(), mirror))
             .collect());
+
         let mut packages = self.packages.write().unwrap();
         let mut added = 0;
         let mut removed = 0;

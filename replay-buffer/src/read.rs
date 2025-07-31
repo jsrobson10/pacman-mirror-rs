@@ -19,6 +19,9 @@ impl<T> ReplayBufferReader<T> where T: Clone {
             lock = self.base.cvar.wait(lock).unwrap();
         }
     }
+    pub fn source(&self) -> &Arc<ReplayBuffer<T>> {
+        &self.base
+    }
 }
 
 impl<T> Iterator for ReplayBufferReader<T> where T: Clone {

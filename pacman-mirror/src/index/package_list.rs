@@ -12,6 +12,7 @@ impl Index {
         let Some(repo) = self.db.repos.get(repo.as_str()) else {
             return Ok(Response::empty_404());
         };
+        repo.refresh_if_ready(None);
         let lock = repo.packages.read().unwrap();
         let mut pkgs = lock.values().map(|v| {
             (v.desc.name.as_ref(), v.desc.filename.as_ref(), v.desc.version.as_ref(), v.mirrors.len(), match v.cache.get() {

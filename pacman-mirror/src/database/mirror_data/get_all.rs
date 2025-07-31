@@ -21,7 +21,7 @@ impl Repo {
         
         let mirror_count = self.config.mirrors.len();
         let mut packages = HashMap::<Arc<str>, PackageWithCount>::new();
-        let iter = IterIterator::new(self.mirrors.values()
+        let iter = IterIterator::new(self.mirrors.iter()
             .map(|v| (v.state.read().unwrap().packages.read(), ()))
             .collect());
 
