@@ -17,7 +17,7 @@ fn main() -> anyhow::Result<()> {
         .parse_env(Env::new().filter_or("RUST_LOG", "info"))
         .try_init()?;
     
-    let config = Arc::new(Config::load("config.yaml")?);
+    let config = Arc::new(Config::load("config.toml")?);
     let database = Arc::new(Database::new(config.clone()));
     let index = Arc::new(Index::new(database.clone()));
 

@@ -30,14 +30,14 @@ impl Default for Config {
 impl Config {
     fn try_load(path: &str) -> anyhow::Result<Self> {
         let data = std::fs::read_to_string(path)?;
-        Ok(serde_yml::from_str(&data)?)
+        Ok(toml::from_str(&data)?)
     }
     pub fn load(path: &str) -> anyhow::Result<Self> {
         if let Ok(cfg) = Self::try_load(path) {
             return Ok(cfg);
         }
         let cfg = Self::default();
-        std::fs::write(path, serde_yml::to_string(&cfg)?)?;
+        std::fs::write(path, toml::to_string(&cfg)?)?;
         Ok(cfg)
     }
 }
