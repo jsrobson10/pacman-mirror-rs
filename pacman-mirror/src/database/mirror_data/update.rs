@@ -4,7 +4,7 @@ use flate2::read::GzDecoder;
 use log::{debug, trace};
 use replay_buffer::ReplayBufferWriter;
 
-use crate::database::{desc::Desc, mirror_data::MirrorData};
+use crate::database::{desc::Desc, mirror_data::MirrorData, repo::state::FetchType};
 
 
 struct PartialPackage {
@@ -17,9 +17,9 @@ impl PartialPackage {
     pub fn new(name: OsString) -> Self {
         Self { name, desc: None, files: None }
     }
-    pub fn into_desc(self, files: bool) -> Option<Arc<Desc>> {
+    pub fn into_desc(self, ty: FetchType) -> Option<Arc<Desc>> {
         let mut desc = self.desc?;
-        if files {
+        if ty >= FetchType::Files {
             desc.files = Some(self.files?);
         }
         Some(desc.into())
@@ -38,13 +38,13 @@ impl MirrorData {
         packages_writer
     }
 
-    pub fn update(&self, dst: &mut ReplayBufferWriter<Arc<Desc>>, files: bool) -> anyhow::Result<()> {
+    pub fn update(&self, dst: &mut ReplayBufferWriter<Arc<Desc>>, fetch_ty: FetchType) -> anyhow::Result<()> {
 
         let repo_url = self.repo_url.as_ref();
         let db_url_path = Path::new(repo_url)
-            .join(format!("{}.{}", self.repo_name, match files {
-                true => "files",
-                false => "db",
+            .join(format!("{}.{}", self.repo_name, match fetch_ty {
+                FetchType::Files => "files",
+                FetchType::Db => "db",
             }));
         let db_url = db_url_path.to_string_lossy();
         let res = minreq::get(db_url.as_ref()).send_lazy()?;
@@ -74,7 +74,7 @@ impl MirrorData {
             let partial_pkg = partial_pkg.get_or_insert_with(|| PartialPackage::new(name.into()));
             if partial_pkg.name != name {
                 let pkg = std::mem::replace(partial_pkg, PartialPackage::new(name.into()));
-                if let Some(desc) = pkg.into_desc(files) {
+                if let Some(desc) = pkg.into_desc(fetch_ty) {
                     dst.push(desc);
                 }
             }
@@ -91,7 +91,7 @@ impl MirrorData {
                 partial_pkg.files = Some(str.into());
             }
         }
-        if let Some(desc) = partial_pkg.take().and_then(|v| v.into_desc(files)) {
+        if let Some(desc) = partial_pkg.take().and_then(|v| v.into_desc(fetch_ty)) {
             dst.push(desc);
         }
         debug!("Wrapping up: {repo_url}");

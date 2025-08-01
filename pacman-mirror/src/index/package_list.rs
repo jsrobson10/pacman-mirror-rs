@@ -2,7 +2,7 @@ use itertools::Itertools;
 use maud::html;
 use rouille::{Request, Response};
 
-use crate::{cache::DataSource, Index};
+use crate::{cache::DataSource, database::repo::state::FetchType, Index};
 
 use super::template;
 
@@ -12,8 +12,8 @@ impl Index {
         let Some(repo) = self.db.repos.get(repo.as_str()) else {
             return Ok(Response::empty_404());
         };
-        if repo.should_refresh(false) {
-            repo.try_refresh(None, false);
+        if repo.should_refresh(FetchType::Db) {
+            repo.try_refresh(None, FetchType::Db);
         }
         let repo_state = repo.state.read().unwrap();
         let mut pkgs = repo_state.packages.values().map(|v| {

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use itertools::Itertools;
 use rouille::Response;
 
-use crate::Index;
+use crate::{database::repo::state::FetchType, Index};
 
 use super::{get_property, property::PropertyType};
 
@@ -15,8 +15,8 @@ impl Index {
         };
         if let Some([_, end]) = file.split('.').collect_array().filter(|v| v[0] == repo_name.as_ref()) {
             return match end {
-                "db" => self.get_database(repo, true),
-                "files" => self.get_database(repo, false),
+                "db" => self.get_database(repo, FetchType::Db),
+                "files" => self.get_database(repo, FetchType::Files),
                 _ => Ok(Response::empty_404()),
             }
         }

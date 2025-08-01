@@ -3,7 +3,7 @@ use crate::{database::mirror_data::MirrorData, Config};
 
 pub use state::State;
 
-mod state;
+pub mod state;
 mod refresh;
 mod get_all;
 

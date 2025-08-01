@@ -5,7 +5,7 @@ use itertools::Itertools;
 use log::{debug, error, info};
 use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
 
-use crate::database::{package::Package, Repo};
+use crate::database::{package::Package, repo::state::FetchType, Repo};
 
 
 struct AtomicStoreGuard<'a>(&'a AtomicBool);
@@ -17,17 +17,17 @@ impl<'a> Drop for AtomicStoreGuard<'a> {
 }
 
 impl Repo {
-    pub fn should_refresh(&self, files: bool) -> bool {
-        self.is_updating.load(atomic::Ordering::Relaxed) || self.state.read().unwrap().should_refresh(&self.config, files)
+    pub fn should_refresh(&self, ty: FetchType) -> bool {
+        self.is_updating.load(atomic::Ordering::Relaxed) || self.state.read().unwrap().should_refresh(&self.config, ty)
     }
-    pub fn try_refresh(&self, signal: Option<mpsc::Sender<()>>, files: bool) {
+    pub fn try_refresh(&self, signal: Option<mpsc::Sender<()>>, ty: FetchType) {
         if self.is_updating.swap(true, atomic::Ordering::Relaxed) {
             return;
         }
 
         let _guard = AtomicStoreGuard(&self.is_updating);
         let repo_name = &self.name;
-        debug!("Refreshing {repo_name}");
+        debug!("Refreshing {repo_name} ({ty:?})");
 
         let mut buf_writers = self.mirrors.iter()
             .map(|v| (v, v.prepare_for_update()))
@@ -35,7 +35,7 @@ impl Repo {
         drop(signal);
 
         buf_writers.par_iter_mut().for_each(|(mirror, writer)| {
-            if let Err(err) = mirror.update(writer, false) {
+            if let Err(err) = mirror.update(writer, ty) {
                 error!("mirror {}: {err:?}", mirror.repo_url);
             }
         });
@@ -46,7 +46,7 @@ impl Repo {
 
         let mut state = self.state.write().unwrap();
         state.last_updated = SystemTime::now();
-        state.files = files;
+        state.ty = ty;
 
         let mut added = 0;
         let mut removed = 0;
@@ -74,7 +74,7 @@ impl Repo {
             .map(|pkg| (pkg.desc.filename.clone(), pkg.desc.name.clone()))
             .collect();
 
-        info!("Refreshed {repo_name}: {added} added {removed} removed");
+        info!("Refreshed {repo_name} ({ty:?}): {added} added {removed} removed");
     }
 }
 
