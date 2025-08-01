@@ -6,14 +6,14 @@ use tar::{EntryType, Header};
 use crate::{database::Repo, Index};
 
 impl Index {
-    fn send_database(&self, writer: os_pipe::PipeWriter, repo: Arc<Repo>) -> anyhow::Result<()> {
+    fn send_database(&self, writer: os_pipe::PipeWriter, repo: Arc<Repo>, files: bool) -> anyhow::Result<()> {
         let mut tar_builder = tar::Builder::new(flate2::write::GzEncoder::new(writer, flate2::Compression::new(1)));
 
-        if repo.should_refresh() {
+        if repo.should_refresh(files) {
             let (tx, rx) = mpsc::channel::<()>();
             std::thread::spawn({
                 let repo = repo.clone();
-                move || repo.refresh_if_ready(Some(tx))
+                move || repo.try_refresh(Some(tx), files)
             });
             // wait for the signal (its result doesn't matter)
             _ = rx.recv();
@@ -50,12 +50,12 @@ impl Index {
             Ok(())
         })
     }
-    pub fn get_database(self: &Arc<Self>, repo: Arc<Repo>) -> anyhow::Result<Response> {
+    pub fn get_database(self: &Arc<Self>, repo: Arc<Repo>, files: bool) -> anyhow::Result<Response> {
         let (reader, writer) = os_pipe::pipe()?;
         let db = self.clone();
 
         std::thread::spawn(move || {
-            if let Err(err) = db.send_database(writer, repo) {
+            if let Err(err) = db.send_database(writer, repo, files) {
                 error!("{err:?}");
             }
         });

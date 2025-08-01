@@ -8,7 +8,6 @@ pub struct Package {
     pub desc: Arc<Desc>,
     pub cache: Cache,
     pub mirrors: Vec<Arc<str>>,
-    pub files: Option<String>,
 }
 
 impl Package {
@@ -17,7 +16,6 @@ impl Package {
             desc,
             cache: Cache::new(),
             mirrors: Vec::new(),
-            files: None,
         }
     }
 }

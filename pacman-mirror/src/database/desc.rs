@@ -11,6 +11,7 @@ mod cursor;
 #[derive(Clone)]
 pub struct Desc {
     fields: Vec<(Arc<str>, Arc<str>)>,
+    pub files: Option<Arc<str>>,
     pub name: Arc<str>,
     pub filename: Arc<str>,
     pub version: Arc<str>,
@@ -25,7 +26,7 @@ enum Known {
 }
 
 impl Desc {
-    pub fn parse(src: Box<str>) -> Result<Arc<Desc>, ParseError> {
+    pub fn parse(src: Box<str>) -> Result<Desc, ParseError> {
         let mut data = Vec::<(Arc<str>, Arc<str>)>::new();
         parser::parse(src, |k, v| {
             data.push((k.to_uppercase().into(), v.into()));
@@ -49,6 +50,7 @@ impl Desc {
             return Err(ParseError::Decode { field: "SHA256SUM", err });
         }
         Ok(Self {
+            files: None,
             fields: data,
             name: known[Known::Name as usize].clone(),
             filename: known[Known::Filename as usize].clone(),
@@ -63,7 +65,7 @@ impl Desc {
                 Ok(len) => len,
                 Err(err) => return Err(ParseError::ParseInt { field: "CSIZE", err }),
             },
-        }.into())
+        })
     }
     pub fn write_to(&self, dst: impl Write) -> std::io::Result<()> {
         writer::write(dst, self.fields.iter().map(|(k, v)| (&**k, &**v)))

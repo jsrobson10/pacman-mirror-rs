@@ -15,7 +15,8 @@ impl Index {
         };
         if let Some([_, end]) = file.split('.').collect_array().filter(|v| v[0] == repo_name.as_ref()) {
             return match end {
-                "db" => self.get_database(repo),
+                "db" => self.get_database(repo, true),
+                "files" => self.get_database(repo, false),
                 _ => Ok(Response::empty_404()),
             }
         }

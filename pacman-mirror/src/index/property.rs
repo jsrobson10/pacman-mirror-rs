@@ -12,9 +12,9 @@ pub enum PropertyType {
 }
 
 pub fn get_property(repo: Arc<Repo>, file: &str, ty: PropertyType) -> anyhow::Result<Response> {
-    let packages = repo.packages.read().unwrap();
-    let package_name = repo.get_name_from_filename(file.as_ref());
-    let Some(package) = package_name.and_then(|v| packages.get(v.as_ref())) else {
+    let repo_state = repo.state.read().unwrap();
+    let package_name = repo_state.packages_by_filename.get(file);
+    let Some(package) = package_name.and_then(|v| repo_state.packages.get(v.as_ref())) else {
         return Ok(Response::empty_404());
     };
     Ok(match ty {

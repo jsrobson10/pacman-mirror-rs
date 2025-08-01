@@ -10,8 +10,8 @@ use crate::{cache::DataSource, database::Repo, Index};
 
 
 pub fn download_package(repo: Arc<Repo>, name: Arc<str>, mut src: impl Read, mut dst: ReplayBufferWriter<u8>) -> anyhow::Result<()> {
-    let lock = repo.packages.read().unwrap();
-    let package = lock.get(name.as_ref()).ok_or_else(|| anyhow!("Package {name} is None"))?;
+    let repo_state = repo.state.read().unwrap();
+    let package = repo_state.packages.get(name.as_ref()).ok_or_else(|| anyhow!("Package {name} is None"))?;
     let mut hasher = sha2::Sha256::new();
 
     package.cache.set(DataSource::Memory(dst.source().clone()));
@@ -43,9 +43,9 @@ pub fn download_package(repo: Arc<Repo>, name: Arc<str>, mut src: impl Read, mut
 
 impl Index {
     pub fn get_package(&self, repo: Arc<Repo>, file: Arc<str>) -> anyhow::Result<Response> {
-        let packages_lock = repo.packages.read().unwrap();
-        let package_name = repo.get_name_from_filename(file.as_ref());
-        let Some(package) = package_name.and_then(|v| packages_lock.get(v.as_ref())) else {
+        let repo_state = repo.state.read().unwrap();
+        let package_name = repo_state.packages_by_filename.get(file.as_ref());
+        let Some(package) = package_name.and_then(|v| repo_state.packages.get(v.as_ref())) else {
             return Ok(Response::empty_404());
         };
         let response_body = match package.cache.get() {
